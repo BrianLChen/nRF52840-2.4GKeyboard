@@ -379,6 +379,9 @@ APP_USBD_CLASS_TYPEDEF(app_usbd_hid_kbd,
         ret_code_t buffer_clear(app_usbd_hid_kbd_t const *p_kbd, uint8_t report_id);
     ret_code_t send(app_usbd_hid_kbd_t const *p_kbd);
 
+    // function to send report buffer to UDBD endpoint
+    ret_code_t KBD_Send(app_usbd_hid_kbd_t const *p_kbd, uint8_t *rep_buff);
+
     /** @} */
 
 #ifdef __cplusplus

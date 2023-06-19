@@ -64,15 +64,13 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
-//#include "Key.h"
+// #include "Key.h"
 #include "LED.h"
 
 const nrfx_timer_t TIMER_KBD = NRFX_TIMER_INSTANCE(0);
 
 uint8_t KEYBOARD_Rep_Buff[17];
 uint8_t CONSUMER_Rep_Buff[2];
-
-bool ready;
 
 /**
  * @brief Enable USB power detection
@@ -182,19 +180,15 @@ static void hid_kbd_user_ev_handler(app_usbd_class_inst_t const *p_inst,
     app_usbd_hid_user_event_t event)
 {
     UNUSED_PARAMETER(p_inst);
-    ready = false;
     switch (event)
     {
     case APP_USBD_HID_USER_EVT_OUT_REPORT_READY:
         /* Only one output report IS defined for HID keyboard class. Update LEDs state. */
-        // bsp_board_led_invert(LED_HID_REP);
-        LED_invert(LED2);
+        // LED_invert(LED2);
         kbd_status();
         break;
     case APP_USBD_HID_USER_EVT_IN_REPORT_DONE:
-        // bsp_board_led_invert(LED_HID_REP);
-        LED_invert(LED2);
-        ready = true;
+        // LED_invert(LED2);
         break;
     case APP_USBD_HID_USER_EVT_SET_BOOT_PROTO:
         UNUSED_RETURN_VALUE(hid_kbd_clear_buffer(p_inst));
@@ -281,101 +275,22 @@ uint32_t debouncefilter(uint8_t delay)
 static void scan_key(nrf_timer_event_t event_type, void *p_context)
 {
     uint32_t a = debouncefilter(100);
-    // if (a != 0)
-    //{
-    //     buffer_clear(&m_app_hid_kbd, REPORT_ID_KEYBOARD);
-    // }
-    // else
-    //{
-    //      UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_A, true));
-    //     //UNUSED_RETURN_VALUE(custom_media_press(&m_app_hid_kbd, 0x01, true));
-    //     // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_B, true));
-    //     // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_C, true));
-    //     // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_D, true));
-    //     // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_E, true));
-    //     // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_F, true));
-    //     // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_G, true));
-    //     // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_H, true));
-    //     // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_I, true));
-    // }
 
     if (a != 0)
     {
-        // buffer_clear(&m_app_hid_kbd, REPORT_ID_KEYBOARD);
-        buffer_clear(&m_app_hid_kbd, 0x01);
+        memset(KEYBOARD_Rep_Buff, 0, 17);
+        KEYBOARD_Rep_Buff[0] = 0x01;
     }
     else
     {
-         UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_A, true));
-        //UNUSED_RETURN_VALUE(custom_media_press(&m_app_hid_kbd, 0x10, true));
-        // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_B, true));
-        // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_C, true));
-        // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_D, true));
-        // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_E, true));
-        // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_F, true));
-        // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_G, true));
-        // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_H, true));
-        // UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_I, true));
+        KEYBOARD_Rep_Buff[0] = 0x01;
+        KEYBOARD_Rep_Buff[2] = 0x10;
     }
-
-    send(&m_app_hid_kbd);
+    KBD_Send(&m_app_hid_kbd, KEYBOARD_Rep_Buff);
     app_usbd_event_queue_process();
+
+    // kbd_status();
 }
-
-// Button Press detect
-// static void bsp_event_callback(bsp_event_t ev)
-//{
-//    switch ((unsigned int)ev)
-//    {
-//        // case CONCAT_2(BSP_EVENT_KEY_, BTN_KBD_SHIFT):
-//        //     UNUSED_RETURN_VALUE(app_usbd_hid_kbd_modifier_state_set(&m_app_hid_kbd, APP_USBD_HID_KBD_MODIFIER_LEFT_UI, true));
-//        //     break;
-//        // case CONCAT_2(BSP_USER_EVENT_RELEASE_, BTN_KBD_SHIFT):
-//        //     UNUSED_RETURN_VALUE(app_usbd_hid_kbd_modifier_state_set(&m_app_hid_kbd, APP_USBD_HID_KBD_MODIFIER_LEFT_UI, false));
-//        //     break;
-
-//    case CONCAT_2(BSP_EVENT_KEY_, BTN_KBD):
-//        // UNUSED_RETURN_VALUE(app_usbd_hid_kbd_key_control(&m_app_hid_kbd, CONFIG_KBD_LETTER, true));
-//        if (Is_Key_Pressed(Key1))
-//        {
-//            UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_A, true));
-//            UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_B, true));
-//            UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_C, true));
-//            UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_D, true));
-//            UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_E, true));
-//            UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_F, true));
-//            UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_G, true));
-//            UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_H, true));
-//            UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_I, true));
-//        }
-//        else
-//        {
-//            buffer_clear(&m_app_hid_kbd);
-//        }
-//        UNUSED_RETURN_VALUE(send(&m_app_hid_kbd));
-//        //app_usbd_event_queue_process();
-//        break;
-//    case CONCAT_2(BSP_USER_EVENT_RELEASE_, BTN_KBD):
-//        // UNUSED_RETURN_VALUE(app_usbd_hid_kbd_key_control(&m_app_hid_kbd, CONFIG_KBD_LETTER, false));
-//        UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_A, false));
-//        UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_B, false));
-//        UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_C, false));
-//        UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_D, false));
-//        UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_E, false));
-//        UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_F, false));
-//        UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_G, false));
-//        UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_H, false));
-//        UNUSED_RETURN_VALUE(custom_key_press(&m_app_hid_kbd, CUSTOM_USBD_HID_KBD_I, false));
-//        UNUSED_RETURN_VALUE(buffer_clear(&m_app_hid_kbd));
-//        UNUSED_RETURN_VALUE(send(&m_app_hid_kbd));
-//        //app_usbd_event_queue_process();
-
-//        break;
-//    default:
-//        // app_usbd_event_queue_process();
-//        return; // no implementation needed
-//    }
-//}
 
 /**
  * @brief Auxiliary internal macro
@@ -401,7 +316,8 @@ static void scan_key(nrf_timer_event_t event_type, void *p_context)
 //    bsp_board_init(BSP_INIT_LEDS);
 //}
 
-int main(void)
+// Function to init Wire Mode Keyboard
+void Wire_Mode()
 {
     ret_code_t ret;
     static const app_usbd_config_t usbd_config = {
@@ -416,8 +332,8 @@ int main(void)
     APP_ERROR_CHECK(ret);
 
     // 禁止后无法使用按键 KEY1
-    //nrf_drv_clock_lfclk_request(NULL);
-    //while (!nrf_drv_clock_lfclk_is_running())
+    // nrf_drv_clock_lfclk_request(NULL);
+    // while (!nrf_drv_clock_lfclk_is_running())
     //{
     //    /* Just waiting */
     //}
@@ -426,10 +342,6 @@ int main(void)
     // APP_ERROR_CHECK(ret);
 
     // init_bsp();
-
-    // #if NRF_CLI_ENABLED
-    //     init_cli();
-    // #endif
 
     ret = app_usbd_init(&usbd_config);
     APP_ERROR_CHECK(ret);
@@ -454,9 +366,9 @@ int main(void)
     time_ticks = nrfx_timer_ms_to_ticks(&TIMER_KBD, time_ms);
 
     // Set compare, when counter value = time_ticks -> interrupt
-     nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
-    //nrfx_timer_compare_int_enable(&TIMER_KBD, NRF_TIMER_INT_COMPARE0);
-     nrfx_timer_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, true);
+    nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
+    // nrfx_timer_compare_int_enable(&TIMER_KBD, NRF_TIMER_INT_COMPARE0);
+    nrfx_timer_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, true);
 
     if (USBD_POWER_DETECTION)
     {
@@ -471,8 +383,7 @@ int main(void)
         app_usbd_start();
     }
 
-    //for (uint32_t i = 0; i < 200000; i++)
-    // while(ready != true)
+    for (uint32_t i = 0; i < 200000; i++)
     {
         app_usbd_event_queue_process();
     }
@@ -492,4 +403,17 @@ int main(void)
         //     /* Nothing to do */
         // }
     }
+}
+
+// Function to init 2.4G Wireless Mode Keyboard
+void Wireless_Mode()
+{
+}
+
+int main(void)
+{
+    if(1)
+    Wire_Mode();
+    else
+    Wireless_Mode();
 }

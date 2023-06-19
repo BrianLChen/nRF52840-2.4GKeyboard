@@ -318,14 +318,14 @@ ret_code_t custom_media_press(app_usbd_hid_kbd_t const *p_kbd, uint8_t _key, boo
     app_usbd_hid_access_lock(&p_kbd_ctx->hid_ctx);
     if (press)
     {
-         p_kbd_ctx->rep.modifier = (0x01 << bitIndex) | p_kbd_ctx->rep.modifier;
+        p_kbd_ctx->rep.modifier = (0x01 << bitIndex) | p_kbd_ctx->rep.modifier;
         // p_kbd_ctx->rep.modifier = _key;
-        //p_kbd_ctx->rep.key_table[14] = 0x01;
-        //p_kbd_ctx->rep.key_table[3] = 0x01;
+        // p_kbd_ctx->rep.key_table[14] = 0x01;
+        // p_kbd_ctx->rep.key_table[3] = 0x01;
 
-        //p_kbd_ctx->rep.key_table[15] = 0x01;
-        //p_kbd_ctx->rep.key_table[16] = 0x01;
-        // p_kbd_ctx->rep.key_table[1] = 0x10;
+        // p_kbd_ctx->rep.key_table[15] = 0x01;
+        // p_kbd_ctx->rep.key_table[16] = 0x01;
+        //  p_kbd_ctx->rep.key_table[1] = 0x10;
 
         p_kbd_ctx->rep.report_id = 0x01;
     }
@@ -685,6 +685,37 @@ static ret_code_t hid_kbd_on_idle(app_usbd_class_inst_t const *p_inst, uint8_t r
     CRITICAL_REGION_EXIT();
 
     return NRF_SUCCESS;
+}
+
+//TODO
+ret_code_t KBD_Send(app_usbd_hid_kbd_t const *p_kbd, uint8_t *rep_buff)
+{
+    app_usbd_class_inst_t const *p_inst = (app_usbd_class_inst_t const *)p_kbd;
+    app_usbd_hid_kbd_ctx_t *p_kbd_ctx = hid_kbd_ctx_get(p_kbd);
+
+    nrf_drv_usbd_ep_t ep_addr = app_usbd_hid_epin_addr_get(p_inst);
+
+    app_usbd_hid_state_flag_clr(&p_kbd_ctx->hid_ctx, APP_USBD_HID_STATE_FLAG_TRANS_IN_PROGRESS);
+
+    if (!hid_kbd_transfer_next(p_kbd))
+    {
+        /* Transfer buffer hasn't changed since last transfer. No need to setup
+         * next transfer.
+         * */
+        return NRF_SUCCESS;
+    }
+    NRF_DRV_USBD_TRANSFER_IN(transfer, rep_buff, keyboard_rep_byte);
+
+    ret_code_t ret;
+    CRITICAL_REGION_ENTER();
+    ret = app_usbd_ep_transfer(ep_addr, &transfer);
+    if (ret == NRF_SUCCESS)
+    {
+        app_usbd_hid_state_flag_set(&p_kbd_ctx->hid_ctx, APP_USBD_HID_STATE_FLAG_TRANS_IN_PROGRESS);
+    }
+    CRITICAL_REGION_EXIT();
+
+    return ret;
 }
 
 /** @} */
