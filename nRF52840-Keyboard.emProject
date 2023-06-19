@@ -1,5 +1,5 @@
 <!DOCTYPE CrossStudio_Project_File>
-<solution Name="nrf_NKRO_KBD2" target="8" version="2">
+<solution Name="nRF52840-Keyboard" target="8" version="2">
   <configuration
     Name="Debug"
     c_preprocessor_definitions="DEBUG; DEBUG_NRF"
@@ -9,7 +9,7 @@
     c_preprocessor_definitions="NDEBUG"
     gcc_optimization_level="Optimize For Size"
     link_time_optimization="No" />
-  <project Name="nrf_NKRO_KBD2">
+  <project Name="nRF52840-Keyboard">
     <configuration
       Name="Common"
       arm_architecture="v7EM"
@@ -72,7 +72,6 @@
       <file file_name="Custom_Lib/Key.h" />
       <file file_name="Custom_Lib/LED.c" />
       <file file_name="Custom_Lib/LED.h" />
-      <file file_name="Custom_Lib/app_usbd_hid_generic.c" />
       <file file_name="Custom_Lib/custom_usbd_hid_kbd.c" />
     </folder>
     <folder Name="None">

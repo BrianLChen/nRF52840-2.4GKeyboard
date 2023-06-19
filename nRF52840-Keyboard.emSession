@@ -31,12 +31,12 @@
   <MemoryWindow addressSpace="" dataSize="1" autoEvaluate="0" viewMode="0" viewType="4" addressOrder="0" columnsText="" refreshPeriod="0" name="nrf_NKRO_KBD2_Debug" sizeText="" addressText=""/>
  </Memory4>
  <Project>
-  <ProjectSessionItem path="nrf_NKRO_KBD2"/>
-  <ProjectSessionItem path="nrf_NKRO_KBD2;nrf_NKRO_KBD2"/>
-  <ProjectSessionItem path="nrf_NKRO_KBD2;nrf_NKRO_KBD2;Application"/>
-  <ProjectSessionItem path="nrf_NKRO_KBD2;nrf_NKRO_KBD2;Custom_Lib"/>
-  <ProjectSessionItem path="nrf_NKRO_KBD2;nrf_NKRO_KBD2;nRF_Drivers"/>
-  <ProjectSessionItem path="nrf_NKRO_KBD2;nrf_NKRO_KBD2;nRF_Libraries"/>
+  <ProjectSessionItem path="nRF52840-Keyboard"/>
+  <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard"/>
+  <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard;Application"/>
+  <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard;Custom_Lib"/>
+  <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard;nRF_Drivers"/>
+  <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard;nRF_Libraries"/>
  </Project>
  <Register1>
   <RegisterWindow visibleNodes="CPU - Current Context/r0;CPU - Current Context/r1;CPU - Current Context/r2;CPU - Current Context/r3;CPU - Current Context/r4;CPU - Current Context/r5;CPU - Current Context/r6;CPU - Current Context/r7;CPU - Current Context/r8;CPU - Current Context/r9;CPU - Current Context/r10;CPU - Current Context/r11;CPU - Current Context/r12;CPU - Current Context/sp(r13);CPU - Current Context/lr(r14);CPU - Current Context/pc(r15);CPU - Current Context/apsr;CPU/r0;CPU/r1;CPU/r2;CPU/r3;CPU/r4;CPU/r5;CPU/r6;CPU/r7;CPU/r8;CPU/r9;CPU/r10;CPU/r11;CPU/r12;CPU/sp(r13);CPU/lr(r14);CPU/pc(r15);CPU/xpsr;CPU/MSP;CPU/PSP;CPU/PRIMASK;CPU/BASEPRI;CPU/FAULTMASK;CPU/CONTROL;CPU/internal" binaryNodes="" asciiNodes="" openNodes="CPU - Current Context" name="nrf_NKRO_KBD_Debug" decimalNodes="" octalNodes="" unsignedNodes=""/>
@@ -80,7 +80,7 @@
   <SessionOpenFile windowGroup="DockEditLeft" x="35" y="89" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nrf_NKRO_KBD/Application/main.c" path="Custom_Lib/custom_usbd_hid_kbd.h" left="0" top="69" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="4" y="275" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nrf_NKRO_KBD/Custom_Lib/custom_usbd_hid_kbd.c" path="../../components/libraries/usbd/class/hid/app_usbd_hid.h" left="0" top="266" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="6" y="3402" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/components/libraries/usbd/app_usbd.c" path="config/sdk_config.h" left="0" top="3389" codecName="UTF-8"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="132" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nrf_NKRO_KBD/Custom_Lib/custom_usbd_hid_kbd.h" path="Custom_Lib/custom_usbd_hid_kbd_desc.h" left="0" selected="1" top="124" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="132" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nrf_NKRO_KBD/Custom_Lib/custom_usbd_hid_kbd.h" path="Custom_Lib/custom_usbd_hid_kbd_desc.h" left="0" selected="1" top="39" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="372" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nrf_NKRO_KBD/Custom_Lib/custom_usbd_hid_kbd.c" path="../../components/libraries/usbd/app_usbd_class_base.h" left="0" top="358" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="7" y="56" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nrf_NKRO_KBD/Custom_Lib/custom_usbd_hid_kbd.c" path="Custom_Lib/custom_usbd_hid_kbd_internal.h" left="0" top="35" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="30" y="130" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/components/libraries/usbd/class/hid/app_usbd_hid.h" path="../../components/libraries/usbd/app_usbd_descriptor.h" left="0" top="106" codecName="UTF-8"/>
@@ -92,8 +92,6 @@
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="1217" useTextEdit="1" path="../../modules/nrfx/hal/nrf_usbd.h" left="0" top="1194" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="8" y="274" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/integration/nrfx/legacy/nrf_drv_usbd.h" path="../../modules/nrfx/drivers/include/nrfx_usbd.h" left="0" top="264" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="608" useTextEdit="1" path="../../components/libraries/usbd/app_usbd.h" left="0" top="593" codecName="UTF-8"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="84" y="624" useTextEdit="1" path="Custom_Lib/app_usbd_hid_generic.c" left="0" top="605" codecName="UTF-8"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="78" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nrf_NKRO_KBD/Custom_Lib/app_usbd_hid_generic.c" path="Custom_Lib/app_usbd_hid_generic_internal.h" left="0" top="62" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="80" y="570" useTextEdit="1" path="../../components/libraries/usbd/class/hid/kbd/app_usbd_hid_kbd.c" left="0" top="559" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="309" useTextEdit="1" path="../../modules/nrfx/drivers/nrfx_common.h" left="0" top="288" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="155" useTextEdit="1" path="../../integration/nrfx/nrfx_glue.h" left="0" top="141" codecName="UTF-8"/>
@@ -104,5 +102,5 @@
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="20" useTextEdit="1" path="../../components/boards/waveshare.h" left="0" top="9" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="35" y="12" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nrf_NKRO_KBD2/Application/main.c" path="Custom_Lib/LED.h" left="0" top="0" codecName="UTF-8"/>
  </Files>
- <EMStudioWindow activeProject="nrf_NKRO_KBD2" fileDialogDefaultFilter="*" autoConnectTarget="J-Link" buildConfiguration="Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="D:/C_and_C++/nrf_files/integration/nrfx/legacy" debugSearchPath="" autoConnectCapabilities="3199"/>
+ <EMStudioWindow activeProject="nRF52840-Keyboard" fileDialogDefaultFilter="*" autoConnectTarget="J-Link" buildConfiguration="Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="D:/C_and_C++/nrf_files/integration/nrfx/legacy" debugSearchPath="" autoConnectCapabilities="3199"/>
 </session>
