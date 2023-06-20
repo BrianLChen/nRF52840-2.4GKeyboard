@@ -335,7 +335,7 @@ void Wire_Mode()
         app_usbd_start();
     }
 
-    for (uint32_t i = 0; i < 200000; i++)
+    for (uint32_t i = 0; i < 300000; i++)
     {
         app_usbd_event_queue_process();
     }
@@ -364,37 +364,18 @@ void Wire_Mode()
  */
 void input_get(uint8_t *array)
 {
-    uint8_t Key_Code[16] = {0};
     uint32_t a = debouncefilter(100);
-    // struct key_array array1;
+            memset(array, 0, 17);
+
     if (a != 0)
     {
-        memcpy(array, Key_Code, 16);
-
-        // return array1;
+        //memset(array, 0, 17);
+        array[0] = 0x01;
     }
     else
     {
-
-        Key_Code[0] = 0x10;
-        Key_Code[1] = 0x00;
-        Key_Code[2] = 0x00;
-        Key_Code[3] = 0x00;
-        Key_Code[4] = 0x00;
-        Key_Code[5] = 0x00;
-        Key_Code[6] = 0x00;
-        Key_Code[7] = 0x00;
-        Key_Code[8] = 0x00;
-        Key_Code[9] = 0x00;
-        Key_Code[10] = 0x00;
-        Key_Code[11] = 0x00;
-        Key_Code[12] = 0x00;
-        Key_Code[13] = 0x00;
-        Key_Code[14] = 0x00;
-        Key_Code[15] = 0x00;
-        memcpy(array, Key_Code, 16);
-        // return array1;
-        //  return Key_Code;
+        array[0] = 0x01;
+        array[2] = 0x10;
     }
 }
 
