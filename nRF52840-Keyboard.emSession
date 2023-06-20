@@ -12,6 +12,12 @@
   <ProjectSessionItem path="nRF52840-Keyboard"/>
   <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard"/>
   <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard;Application"/>
+  <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard;Custom_Lib"/>
+  <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard;None"/>
+  <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard;nRF_Drivers"/>
+  <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard;nRF_External"/>
+  <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard;nRF_Libraries"/>
+  <ProjectSessionItem path="nRF52840-Keyboard;nRF52840-Keyboard;nRF_Properitary_RF"/>
  </Project>
  <Register1/>
  <Register2/>
@@ -36,7 +42,12 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="0" useTextEdit="1" path="Application/main.c" left="0" selected="1" top="31" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="29" y="81" useTextEdit="1" path="Application/main.c" left="0" selected="1" top="49" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="80" useTextEdit="1" path="../../components/libraries/balloc/nrf_balloc.c" left="0" top="40" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="25" y="373" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../modules/nrfx/drivers/include/nrfx_timer.h" left="0" top="353" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="70" y="31" useTextEdit="1" path="../../modules/nrfx/drivers/src/nrfx_timer.c" left="0" top="31" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="499" useTextEdit="1" path="../../components/libraries/experimental_task_manager/task_manager.c" left="0" top="459" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="23" y="5069" useTextEdit="1" path="config/sdk_config.h" left="0" top="5069" codecName="UTF-8"/>
  </Files>
- <EMStudioWindow activeProject="Template" fileDialogDefaultFilter="*" autoConnectTarget="J-Link" buildConfiguration="Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="D:/C_and_C++/nrf_files/Brian_Files/Tamplete/Application" debugSearchPath="" autoConnectCapabilities="3199"/>
+ <EMStudioWindow activeProject="nRF52840-Keyboard" fileDialogDefaultFilter="*" autoConnectTarget="J-Link" buildConfiguration="Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="D:/C_and_C++/nrf_files/components/proprietary_rf/gzll/gcc" debugSearchPath="" autoConnectCapabilities="3199"/>
 </session>

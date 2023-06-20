@@ -60,14 +60,21 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
-#include "app_error.h"
-#include "app_timer.h"
 #include "bsp.h"
 #include "nrf_gzll.h"
 #include "nrf_gzll_error.h"
 
 // #include "Key.h"
 #include "LED.h"
+
+/* Gazell Config */
+#define PIPE_NUMBER 1        /**< Pipe 0 is used in this example. */
+#define TX_PAYLOAD_LENGTH 16 /**< 1-byte payload length is used when transmitting. */
+#define RX_Receive_Length
+#define MAX_TX_ATTEMPTS 20 /**< Maximum number of transmission attempts */
+
+static uint8_t m_data_payload[TX_PAYLOAD_LENGTH];                /**< Payload to send to Host. */
+static uint8_t m_ack_payload[NRF_GZLL_CONST_MAX_PAYLOAD_LENGTH]; /**< Placeholder for received ACK payloads from Host. */
 
 const nrfx_timer_t TIMER_KBD = NRFX_TIMER_INSTANCE(0);
 
@@ -294,30 +301,6 @@ static void scan_key(nrf_timer_event_t event_type, void *p_context)
     // kbd_status();
 }
 
-/**
- * @brief Auxiliary internal macro
- *
- * Macro used only in @ref init_bsp to simplify the configuration
- */
-//#define INIT_BSP_ASSIGN_RELEASE_ACTION(btn) \
-//    APP_ERROR_CHECK(                        \
-//        bsp_event_to_button_action_assign(  \
-//            btn,                            \
-//            BSP_BUTTON_ACTION_RELEASE,      \
-//            (bsp_event_t)CONCAT_2(BSP_USER_EVENT_RELEASE_, btn)))
-
-// static void init_bsp(void)
-//{
-//     ret_code_t ret;
-//     ret = bsp_init(BSP_INIT_BUTTONS, bsp_event_callback);
-//     APP_ERROR_CHECK(ret);
-
-//    INIT_BSP_ASSIGN_RELEASE_ACTION(BTN_KBD);
-
-//    /* Configure LEDs */
-//    bsp_board_init(BSP_INIT_LEDS);
-//}
-
 // Function to init Wire Mode Keyboard
 void Wire_Mode()
 {
@@ -407,17 +390,230 @@ void Wire_Mode()
     }
 }
 
+/**
+ * @brief Function to read the button states.
+ *
+ * @return Returns states of buttons.
+ */
+void input_get(uint8_t *array)
+{
+    uint8_t Key_Code[16] = {0};
+    // struct key_array array1;
+    if (bsp_button_is_pressed(0))
+    {
+        Key_Code[0] = 0x10;
+        Key_Code[1] = 0x00;
+        Key_Code[2] = 0x00;
+        Key_Code[3] = 0x00;
+        Key_Code[4] = 0x00;
+        Key_Code[5] = 0x00;
+        Key_Code[6] = 0x00;
+        Key_Code[7] = 0x00;
+        Key_Code[8] = 0x00;
+        Key_Code[9] = 0x00;
+        Key_Code[10] = 0x00;
+        Key_Code[11] = 0x00;
+        Key_Code[12] = 0x00;
+        Key_Code[13] = 0x00;
+        Key_Code[14] = 0x00;
+        Key_Code[15] = 0x00;
+        memcpy(array, Key_Code, 16);
+        // return array1;
+    }
+    else
+    {
+        memcpy(array, Key_Code, 16);
+
+        // return array1;
+        //  return Key_Code;
+    }
+}
+
+/**
+ * @brief Function to control the LED outputs.
+ *
+ * @param[in] val Desirable state of the LEDs.
+ */
+static void output_present(uint8_t val)
+{
+    if ((val & 0x02) != 0)
+    {
+        LED_On(LED0);
+    }
+    else
+    {
+        LED_Off(LED0);
+    }
+
+    if ((val & 0x01) != 0)
+    {
+        LED_On(LED1);
+    }
+    else
+    {
+        LED_Off(LED1);
+    }
+
+    if ((val & 0x04) != 0)
+    {
+        LED_On(LED2);
+    }
+    else
+    {
+        LED_Off(LED2);
+    }
+}
+
+/**
+ * @brief Initialize the BSP modules.
+ */
+static void ui_init(void)
+{
+    uint32_t err_code;
+
+    // Initialize application timer.
+    err_code = app_timer_init();
+    APP_ERROR_CHECK(err_code);
+
+    // BSP initialization.
+    err_code = bsp_init(BSP_INIT_LEDS | BSP_INIT_BUTTONS, NULL);
+    APP_ERROR_CHECK(err_code);
+
+    // Set up logger
+    err_code = NRF_LOG_INIT(NULL);
+    APP_ERROR_CHECK(err_code);
+
+    NRF_LOG_DEFAULT_BACKENDS_INIT();
+
+    // NRF_LOG_INFO("Gazell ACK payload example. Device mode.");
+    NRF_LOG_FLUSH();
+
+    bsp_board_init(BSP_INIT_LEDS);
+}
+
+/*****************************************************************************/
+/** @name Gazell callback function definitions  */
+/*****************************************************************************/
+/**
+ * @brief TX success callback.
+ *
+ * @details If an ACK was received, another packet is sent.
+ */
+void nrf_gzll_device_tx_success(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info)
+{
+    bool result_value = false;
+    uint32_t m_ack_payload_length = NRF_GZLL_CONST_MAX_PAYLOAD_LENGTH;
+
+    if (tx_info.payload_received_in_ack)
+    {
+        // Pop packet and write first byte of the payload to the GPIO port.
+        result_value =
+            nrf_gzll_fetch_packet_from_rx_fifo(pipe, m_ack_payload, &m_ack_payload_length);
+        if (!result_value)
+        {
+            NRF_LOG_ERROR("RX fifo error ");
+        }
+
+        if (m_ack_payload_length > 0)
+        {
+            output_present(m_ack_payload[0]);
+        }
+    }
+
+    // Load data payload into the TX queue.
+    input_get(m_data_payload);
+
+    result_value = nrf_gzll_add_packet_to_tx_fifo(pipe, m_data_payload, TX_PAYLOAD_LENGTH);
+    if (!result_value)
+    {
+        NRF_LOG_ERROR("TX fifo error ");
+    }
+
+#if GZLL_PA_LNA_CONTROL
+    m_rssi_sum += tx_info.rssi;
+    m_packets_cnt++;
+#endif
+}
+
+/**
+ * @brief TX failed callback.
+ *
+ * @details If the transmission failed, send a new packet.
+ *
+ * @warning This callback does not occur by default since NRF_GZLL_DEFAULT_MAX_TX_ATTEMPTS
+ * is 0 (inifinite retransmits).
+ */
+void nrf_gzll_device_tx_failed(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info)
+{
+    NRF_LOG_ERROR("Gazell transmission failed");
+
+    // Load data into TX queue.
+    input_get(m_data_payload);
+
+    bool result_value = nrf_gzll_add_packet_to_tx_fifo(pipe, m_data_payload, TX_PAYLOAD_LENGTH);
+    if (!result_value)
+    {
+        NRF_LOG_ERROR("TX fifo error ");
+    }
+}
+
+/**
+ * @brief Gazelle callback.
+ * @warning Required for successful Gazell initialization.
+ */
+void nrf_gzll_host_rx_data_ready(uint32_t pipe, nrf_gzll_host_rx_info_t rx_info)
+{
+}
+
+/**
+ * @brief Gazelle callback.
+ * @warning Required for successful Gazell initialization.
+ */
+void nrf_gzll_disabled()
+{
+}
+
 // Function to init 2.4G Wireless Mode Keyboard
 void Wireless_Mode()
 {
+    // Set up the user interface (buttons and LEDs).
+    ui_init();
+
+    // Initialize Gazell.
+    bool result_value = nrf_gzll_init(NRF_GZLL_MODE_DEVICE);
+    GAZELLE_ERROR_CODE_CHECK(result_value);
+
+    // set base address for pipe1
+    result_value = nrf_gzll_set_base_address_1(0xbc010827);
+    GAZELLE_ERROR_CODE_CHECK(result_value);
+    result_value = nrf_gzll_set_address_prefix_byte(PIPE_NUMBER, 0x27);
+    GAZELLE_ERROR_CODE_CHECK(result_value);
+
+    // Attempt sending every packet up to MAX_TX_ATTEMPTS times.
+    nrf_gzll_set_max_tx_attempts(MAX_TX_ATTEMPTS);
+
+    input_get(m_data_payload);
+
+    result_value = nrf_gzll_add_packet_to_tx_fifo(PIPE_NUMBER, m_data_payload, TX_PAYLOAD_LENGTH);
 
 
+    // Enable Gazell to start sending over the air.
+    result_value = nrf_gzll_enable();
+    GAZELLE_ERROR_CODE_CHECK(result_value);
+
+    // NRF_LOG_INFO("Gzll ack payload device example started.");
+
+    while (true)
+    {
+        // NRF_LOG_FLUSH();
+        __WFE();
+    }
 }
 
 int main(void)
 {
-    if(1)
-    Wire_Mode();
+    if (0)
+        Wire_Mode();
     else
-    Wireless_Mode();
+        Wireless_Mode();
 }

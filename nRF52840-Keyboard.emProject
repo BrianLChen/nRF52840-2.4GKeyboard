@@ -43,7 +43,9 @@
       project_type="Executable" />
     <folder Name="Application">
       <file file_name="Application/main.c" />
-      <file file_name="config/sdk_config.h" />
+      <file file_name="config/sdk_config.h">
+        <configuration Name="Debug" build_exclude_from_build="No" />
+      </file>
     </folder>
     <folder Name="Board Definition">
       <file file_name="../../components/boards/boards.c" />
@@ -380,6 +382,9 @@
     <folder Name="nRF_Oberon_Crypto">
       <configuration Name="Debug" build_exclude_from_build="Yes" />
       <file file_name="../../external/nrf_oberon/lib/cortex-m4/hard-float/liboberon_3.0.8.a" />
+    </folder>
+    <folder Name="nRF_Properitary_RF">
+      <file file_name="../../components/proprietary_rf/gzll/gcc/gzll_nrf52840_sd_resources_gcc.a" />
     </folder>
     <folder Name="nRF_TLS">
       <configuration Name="Debug" build_exclude_from_build="Yes" />
