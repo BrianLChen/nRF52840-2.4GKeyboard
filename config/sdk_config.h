@@ -1530,7 +1530,7 @@
 // <e> NRFX_I2S_ENABLED - nrfx_i2s - I2S peripheral driver
 //==========================================================
 #ifndef NRFX_I2S_ENABLED
-#define NRFX_I2S_ENABLED 1
+#define NRFX_I2S_ENABLED 0
 #endif
 // <o> NRFX_I2S_CONFIG_SCK_PIN - SCK pin  <0-31> 
 
@@ -3234,7 +3234,7 @@
 // <e> NRFX_SWI_ENABLED - nrfx_swi - SWI/EGU peripheral allocator
 //==========================================================
 #ifndef NRFX_SWI_ENABLED
-#define NRFX_SWI_ENABLED 1
+#define NRFX_SWI_ENABLED 0
 #endif
 // <q> NRFX_EGU_ENABLED  - Enable EGU support
  
@@ -3403,9 +3403,9 @@
 #endif
 
 // <o> NRFX_TIMER_DEFAULT_CONFIG_MODE  - Timer mode or operation
-
-// <0=> Timer
-// <1=> Counter
+ 
+// <0=> Timer 
+// <1=> Counter 
 
 #ifndef NRFX_TIMER_DEFAULT_CONFIG_MODE
 #define NRFX_TIMER_DEFAULT_CONFIG_MODE 0
@@ -3836,7 +3836,7 @@
 // <e> NRFX_UARTE_ENABLED - nrfx_uarte - UARTE peripheral driver
 //==========================================================
 #ifndef NRFX_UARTE_ENABLED
-#define NRFX_UARTE_ENABLED 1
+#define NRFX_UARTE_ENABLED 0
 #endif
 // <o> NRFX_UARTE0_ENABLED - Enable UARTE0 instance 
 #ifndef NRFX_UARTE0_ENABLED
@@ -3962,7 +3962,7 @@
 // <e> NRFX_UART_ENABLED - nrfx_uart - UART peripheral driver
 //==========================================================
 #ifndef NRFX_UART_ENABLED
-#define NRFX_UART_ENABLED 1
+#define NRFX_UART_ENABLED 0
 #endif
 // <o> NRFX_UART0_ENABLED - Enable UART0 instance 
 #ifndef NRFX_UART0_ENABLED
@@ -5170,7 +5170,7 @@
 // <e> TWIS_ENABLED - nrf_drv_twis - TWIS peripheral driver - legacy layer
 //==========================================================
 #ifndef TWIS_ENABLED
-#define TWIS_ENABLED 1
+#define TWIS_ENABLED 0
 #endif
 // <q> TWIS0_ENABLED  - Enable TWIS0 instance
  
@@ -5256,7 +5256,7 @@
 // <e> TWI_ENABLED - nrf_drv_twi - TWI/TWIM peripheral driver - legacy layer
 //==========================================================
 #ifndef TWI_ENABLED
-#define TWI_ENABLED 1
+#define TWI_ENABLED 0
 #endif
 // <o> TWI_DEFAULT_CONFIG_FREQUENCY  - Frequency
  
@@ -5332,7 +5332,7 @@
 // <e> UART_ENABLED - nrf_drv_uart - UART/UARTE peripheral driver - legacy layer
 //==========================================================
 #ifndef UART_ENABLED
-#define UART_ENABLED 1
+#define UART_ENABLED 0
 #endif
 // <o> UART_DEFAULT_CONFIG_HWFC  - Hardware Flow Control
  
@@ -5432,7 +5432,7 @@
 // <e> USBD_ENABLED - nrf_drv_usbd - Software Component
 //==========================================================
 #ifndef USBD_ENABLED
-#define USBD_ENABLED 1
+#define USBD_ENABLED 0
 #endif
 // <o> USBD_CONFIG_IRQ_PRIORITY  - Interrupt priority
  
@@ -5489,7 +5489,7 @@
 // <e> WDT_ENABLED - nrf_drv_wdt - WDT peripheral driver - legacy layer
 //==========================================================
 #ifndef WDT_ENABLED
-#define WDT_ENABLED 1
+#define WDT_ENABLED 0
 #endif
 // <o> WDT_CONFIG_BEHAVIOUR  - WDT behavior in CPU SLEEP or HALT mode
  
@@ -5538,7 +5538,7 @@
  
 
 #ifndef NRF_TWI_SENSOR_ENABLED
-#define NRF_TWI_SENSOR_ENABLED 1
+#define NRF_TWI_SENSOR_ENABLED 0
 #endif
 
 // </h> 
@@ -5592,7 +5592,7 @@
 // <e> APP_SDCARD_ENABLED - app_sdcard - SD/MMC card support using SPI
 //==========================================================
 #ifndef APP_SDCARD_ENABLED
-#define APP_SDCARD_ENABLED 1
+#define APP_SDCARD_ENABLED 0
 #endif
 // <o> APP_SDCARD_SPI_INSTANCE  - SPI instance used
  
@@ -5853,7 +5853,7 @@
 // <2=> Interrupt 
 
 #ifndef APP_USBD_CONFIG_SOF_HANDLING_MODE
-#define APP_USBD_CONFIG_SOF_HANDLING_MODE 2
+#define APP_USBD_CONFIG_SOF_HANDLING_MODE 1
 #endif
 
 // </e>
@@ -6041,7 +6041,7 @@
 // <i> Must be higher than the highest report ID used.
 
 #ifndef APP_USBD_HID_REPORT_IDLE_TABLE_SIZE
-#define APP_USBD_HID_REPORT_IDLE_TABLE_SIZE 2
+#define APP_USBD_HID_REPORT_IDLE_TABLE_SIZE 4
 #endif
 
 // </e>
@@ -6050,7 +6050,7 @@
  
 
 #ifndef APP_USBD_HID_GENERIC_ENABLED
-#define APP_USBD_HID_GENERIC_ENABLED 1
+#define APP_USBD_HID_GENERIC_ENABLED 0
 #endif
 
 // <q> APP_USBD_HID_KBD_ENABLED  - app_usbd_hid_kbd - USB HID keyboard
@@ -6064,14 +6064,14 @@
  
 
 #ifndef APP_USBD_HID_MOUSE_ENABLED
-#define APP_USBD_HID_MOUSE_ENABLED 1
+#define APP_USBD_HID_MOUSE_ENABLED 0
 #endif
 
 // <q> APP_USBD_MSC_ENABLED  - app_usbd_msc - USB MSC class
  
 
 #ifndef APP_USBD_MSC_ENABLED
-#define APP_USBD_MSC_ENABLED 1
+#define APP_USBD_MSC_ENABLED 0
 #endif
 
 // <q> CRC16_ENABLED  - crc16 - CRC16 calculation routines
@@ -6549,7 +6549,7 @@
  
 
 #ifndef NRF_CLI_UART_ENABLED
-#define NRF_CLI_UART_ENABLED 1
+#define NRF_CLI_UART_ENABLED 0
 #endif
 
 // <e> NRF_CSENSE_ENABLED - nrf_csense - Capacitive sensor module
@@ -10059,3 +10059,4 @@
 
 // <<< end of configuration section >>>
 #endif //SDK_CONFIG_H
+

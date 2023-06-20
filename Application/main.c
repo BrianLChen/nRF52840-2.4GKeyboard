@@ -54,15 +54,17 @@
 #include "app_usbd_core.h"
 #include "custom_usbd_hid_kbd.h"
 // #include "Custom_Lib/app_usbd_hid_generic.h"
-#include "bsp.h"
-#include "bsp_cli.h"
-#include "nrf_cli.h"
-#include "nrf_cli_uart.h"
 #include "nrfx_timer.h"
 
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
+
+#include "app_error.h"
+#include "app_timer.h"
+#include "bsp.h"
+#include "nrf_gzll.h"
+#include "nrf_gzll_error.h"
 
 // #include "Key.h"
 #include "LED.h"
@@ -408,6 +410,8 @@ void Wire_Mode()
 // Function to init 2.4G Wireless Mode Keyboard
 void Wireless_Mode()
 {
+
+
 }
 
 int main(void)
