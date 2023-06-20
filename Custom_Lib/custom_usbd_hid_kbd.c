@@ -94,77 +94,12 @@ static inline app_usbd_hid_report_buffer_t const *hid_kbd_rep_buffer_get(app_usb
     app_usbd_hid_kbd_ctx_t *p_kbd_ctx = hid_kbd_ctx_get(p_kbd);
     app_usbd_hid_report_buffer_t *p_rep_buff = app_usbd_hid_rep_buff_in_get(p_hinst);
     p_rep_buff->p_buff = p_kbd_ctx->report_buff;
-    // TODO
-    // p_rep_buff->p_buff[0] = 0x01;
     p_rep_buff->size = sizeof(p_kbd_ctx->report_buff);
 
     /*Keyboard has only one report input/output report buffer */
     return app_usbd_hid_rep_buff_in_get(p_hinst);
 }
 
-// TODO
-/**
- * @brief Returns HID report buffer handle, with different report ID
- *
- * @param[in] p_kbd HID keyboard instance.
- * @param[in] report_id Report ID of the buffer
-
- *
- * @return HID report buffer.
- */
-static inline app_usbd_hid_report_buffer_t const *custom_rep_buffer_get(app_usbd_hid_kbd_t const *p_kbd, uint8_t report_id)
-{
-    ASSERT(p_kbd != NULL);
-    // ASSERT(report_id != NULL);
-    switch (report_id)
-    {
-    // report buffer for report ID 1 (KeyBoard Page)
-    case 1:
-    {
-        app_usbd_hid_inst_t const *p_hinst = &p_kbd->specific.inst.hid_inst;
-        app_usbd_hid_kbd_ctx_t *p_kbd_ctx = hid_kbd_ctx_get(p_kbd);
-        app_usbd_hid_report_buffer_t *p_rep_buff = app_usbd_hid_rep_buff_in_get(p_hinst);
-        p_rep_buff->p_buff = p_kbd_ctx->report_buff;
-
-        // p_rep_buff->p_buff[0] = 0x01;
-        //  p_rep_buff->p_buff[1] = p_kbd_ctx->report_buff[0];
-        //  p_rep_buff->p_buff[2] = 0x10;
-        p_rep_buff->size = sizeof(p_kbd_ctx->report_buff) + 1;
-
-        /*Keyboard has only one report input/output report buffer */
-        return app_usbd_hid_rep_buff_in_get(p_hinst);
-    }
-    // report buffer for report ID 2 (Consumer Page)
-    case 2:
-    {
-        app_usbd_hid_inst_t const *p_hinst = &p_kbd->specific.inst.hid_inst;
-        app_usbd_hid_kbd_ctx_t *p_kbd_ctx = hid_kbd_ctx_get(p_kbd);
-        app_usbd_hid_report_buffer_t *p_rep_buff = app_usbd_hid_rep_buff_in_get(p_hinst);
-        p_rep_buff->p_buff = p_kbd_ctx->report_buff;
-
-        // p_rep_buff->p_buff[0] = 0x01;
-        // p_rep_buff->p_buff[16] = 0x01;
-        //   p_rep_buff->p_buff[1] = p_kbd_ctx->report_buff[0];
-        // p_rep_buff->p_buff[2] = 0x10;
-        p_rep_buff->size = sizeof(p_kbd_ctx->report_buff);
-
-        /*Keyboard has only one report input/output report buffer */
-        return app_usbd_hid_rep_buff_in_get(p_hinst);
-    }
-    // repory buffer if no report ID specified
-    default:
-    {
-        app_usbd_hid_inst_t const *p_hinst = &p_kbd->specific.inst.hid_inst;
-        app_usbd_hid_kbd_ctx_t *p_kbd_ctx = hid_kbd_ctx_get(p_kbd);
-        app_usbd_hid_report_buffer_t *p_rep_buff = app_usbd_hid_rep_buff_in_get(p_hinst);
-        p_rep_buff->p_buff = p_kbd_ctx->report_buff;
-        p_rep_buff->size = sizeof(p_kbd_ctx->report_buff) + 1;
-        /*Keyboard has only one report input/output report buffer */
-        return app_usbd_hid_rep_buff_in_get(p_hinst);
-    }
-    }
-}
-// TODO
 /**
  * @brief Auxiliary function to prepare report transfer buffer to next transfer.
  *
@@ -318,14 +253,14 @@ ret_code_t custom_media_press(app_usbd_hid_kbd_t const *p_kbd, uint8_t _key, boo
     app_usbd_hid_access_lock(&p_kbd_ctx->hid_ctx);
     if (press)
     {
-        p_kbd_ctx->rep.modifier = (0x01 << bitIndex) | p_kbd_ctx->rep.modifier;
+         p_kbd_ctx->rep.modifier = (0x01 << bitIndex) | p_kbd_ctx->rep.modifier;
         // p_kbd_ctx->rep.modifier = _key;
-        // p_kbd_ctx->rep.key_table[14] = 0x01;
-        // p_kbd_ctx->rep.key_table[3] = 0x01;
+        //p_kbd_ctx->rep.key_table[14] = 0x01;
+        //p_kbd_ctx->rep.key_table[3] = 0x01;
 
-        // p_kbd_ctx->rep.key_table[15] = 0x01;
-        // p_kbd_ctx->rep.key_table[16] = 0x01;
-        //  p_kbd_ctx->rep.key_table[1] = 0x10;
+        //p_kbd_ctx->rep.key_table[15] = 0x01;
+        //p_kbd_ctx->rep.key_table[16] = 0x01;
+        // p_kbd_ctx->rep.key_table[1] = 0x10;
 
         p_kbd_ctx->rep.report_id = 0x01;
     }
@@ -697,13 +632,6 @@ ret_code_t KBD_Send(app_usbd_hid_kbd_t const *p_kbd, uint8_t *rep_buff)
 
     app_usbd_hid_state_flag_clr(&p_kbd_ctx->hid_ctx, APP_USBD_HID_STATE_FLAG_TRANS_IN_PROGRESS);
 
-    if (!hid_kbd_transfer_next(p_kbd))
-    {
-        /* Transfer buffer hasn't changed since last transfer. No need to setup
-         * next transfer.
-         * */
-        return NRF_SUCCESS;
-    }
     NRF_DRV_USBD_TRANSFER_IN(transfer, rep_buff, keyboard_rep_byte);
 
     ret_code_t ret;

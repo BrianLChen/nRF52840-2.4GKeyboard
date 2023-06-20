@@ -73,10 +73,12 @@
 #define RX_Receive_Length
 #define MAX_TX_ATTEMPTS 20 /**< Maximum number of transmission attempts */
 
+#define Mode_Pin NRF_GPIO_PIN_MAP(0, 26)
+
 static uint8_t m_data_payload[TX_PAYLOAD_LENGTH];                /**< Payload to send to Host. */
 static uint8_t m_ack_payload[NRF_GZLL_CONST_MAX_PAYLOAD_LENGTH]; /**< Placeholder for received ACK payloads from Host. */
 
-const nrfx_timer_t TIMER_KBD = NRFX_TIMER_INSTANCE(0);
+const nrfx_timer_t TIMER_KBD = NRFX_TIMER_INSTANCE(1);
 
 uint8_t KEYBOARD_Rep_Buff[17];
 uint8_t CONSUMER_Rep_Buff[2];
@@ -104,25 +106,6 @@ uint8_t CONSUMER_Rep_Buff[2];
 #define LED_NUMLOCK (BSP_BOARD_LED_1)   /**< NUMLOCK LED1 */
 #define LED_HID_REP (BSP_BOARD_LED_2)   /**< Changes its state if any HID report was received or transmitted LED 2*/
 #define LED_USB_START (BSP_BOARD_LED_3) /**< The USBD library has been started and the bus is not in SUSPEND state LED3 */
-
-// #define BTN_KBD_SHIFT 1
-#define BTN_KBD 0
-/**
- * @brief Additional key release events
- *
- * This example needs to process release events of used buttons
- */
-enum
-{
-    BSP_USER_EVENT_RELEASE_0 = BSP_EVENT_KEY_LAST + 1, /**< Button 0 released */
-    BSP_USER_EVENT_RELEASE_1,                          /**< Button 1 released */
-    BSP_USER_EVENT_RELEASE_2,                          /**< Button 2 released */
-    BSP_USER_EVENT_RELEASE_3,                          /**< Button 3 released */
-    BSP_USER_EVENT_RELEASE_4,                          /**< Button 4 released */
-    BSP_USER_EVENT_RELEASE_5,                          /**< Button 5 released */
-    BSP_USER_EVENT_RELEASE_6,                          /**< Button 6 released */
-    BSP_USER_EVENT_RELEASE_7,                          /**< Button 7 released */
-};
 
 /**
  * @brief USB composite interfaces
@@ -301,6 +284,7 @@ static void scan_key(nrf_timer_event_t event_type, void *p_context)
     // kbd_status();
 }
 
+
 // Function to init Wire Mode Keyboard
 void Wire_Mode()
 {
@@ -309,24 +293,9 @@ void Wire_Mode()
         .ev_state_proc = usbd_user_ev_handler,
     };
 
-    // ret = NRF_LOG_INIT(NULL);
-    // APP_ERROR_CHECK(ret);
-
     // 禁止后蜂鸣器会一直响，且LED状态不正常
     ret = nrf_drv_clock_init();
     APP_ERROR_CHECK(ret);
-
-    // 禁止后无法使用按键 KEY1
-    // nrf_drv_clock_lfclk_request(NULL);
-    // while (!nrf_drv_clock_lfclk_is_running())
-    //{
-    //    /* Just waiting */
-    //}
-
-    // ret = app_timer_init();
-    // APP_ERROR_CHECK(ret);
-
-    // init_bsp();
 
     ret = app_usbd_init(&usbd_config);
     APP_ERROR_CHECK(ret);
@@ -337,8 +306,6 @@ void Wire_Mode()
     ret = app_usbd_class_append(class_inst_kbd);
 
     APP_ERROR_CHECK(ret);
-
-    // NRF_LOG_INFO("USBD HID composite example started.");
 
     nrf_gpio_cfg_input(Key1, NRF_GPIO_PIN_PULLUP);
     uint32_t time_ms = 1; // Time(in miliseconds) between consecutive compare events.
@@ -398,9 +365,17 @@ void Wire_Mode()
 void input_get(uint8_t *array)
 {
     uint8_t Key_Code[16] = {0};
+    uint32_t a = debouncefilter(100);
     // struct key_array array1;
-    if (bsp_button_is_pressed(0))
+    if (a != 0)
     {
+        memcpy(array, Key_Code, 16);
+
+        // return array1;
+    }
+    else
+    {
+
         Key_Code[0] = 0x10;
         Key_Code[1] = 0x00;
         Key_Code[2] = 0x00;
@@ -418,12 +393,6 @@ void input_get(uint8_t *array)
         Key_Code[14] = 0x00;
         Key_Code[15] = 0x00;
         memcpy(array, Key_Code, 16);
-        // return array1;
-    }
-    else
-    {
-        memcpy(array, Key_Code, 16);
-
         // return array1;
         //  return Key_Code;
     }
@@ -470,14 +439,14 @@ static void output_present(uint8_t val)
 static void ui_init(void)
 {
     uint32_t err_code;
-
+    nrf_gpio_cfg_input(Key1, NRF_GPIO_PIN_PULLUP);
     // Initialize application timer.
     err_code = app_timer_init();
     APP_ERROR_CHECK(err_code);
 
-    // BSP initialization.
-    err_code = bsp_init(BSP_INIT_LEDS | BSP_INIT_BUTTONS, NULL);
-    APP_ERROR_CHECK(err_code);
+    //// BSP initialization.
+    // err_code = bsp_init(BSP_INIT_LEDS | BSP_INIT_BUTTONS, NULL);
+    // APP_ERROR_CHECK(err_code);
 
     // Set up logger
     err_code = NRF_LOG_INIT(NULL);
@@ -488,7 +457,7 @@ static void ui_init(void)
     // NRF_LOG_INFO("Gazell ACK payload example. Device mode.");
     NRF_LOG_FLUSH();
 
-    bsp_board_init(BSP_INIT_LEDS);
+    // bsp_board_init(BSP_INIT_LEDS);
 }
 
 /*****************************************************************************/
@@ -596,7 +565,6 @@ void Wireless_Mode()
 
     result_value = nrf_gzll_add_packet_to_tx_fifo(PIPE_NUMBER, m_data_payload, TX_PAYLOAD_LENGTH);
 
-
     // Enable Gazell to start sending over the air.
     result_value = nrf_gzll_enable();
     GAZELLE_ERROR_CODE_CHECK(result_value);
@@ -612,8 +580,14 @@ void Wireless_Mode()
 
 int main(void)
 {
-    if (0)
-        Wire_Mode();
-    else
-        Wireless_Mode();
+    //nrf_drv_clock_init();
+
+    nrf_gpio_cfg_input(Mode_Pin, NRF_GPIO_PIN_PULLUP);
+    uint32_t mode = nrf_gpio_pin_read(Mode_Pin);
+
+    if(mode != 0)
+    Wire_Mode();
+     else
+     Wireless_Mode();
+
 }
