@@ -42,7 +42,12 @@
       project_directory=""
       project_type="Executable" />
     <folder Name="Application">
-      <file file_name="Application/main.c" />
+      <file file_name="main.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="Application/main.c">
+        <configuration Name="Debug" build_exclude_from_build="No" />
+      </file>
       <file file_name="config/sdk_config.h">
         <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
@@ -55,7 +60,9 @@
     </folder>
     <folder Name="Custom_Lib">
       <file file_name="../../Custom_Lib/LED.c" />
-      <file file_name="../../Custom_Lib/custom_usbd_hid_kbd.c" />
+      <file file_name="../../Custom_Lib/custom_usbd_hid_kbd.c">
+        <configuration Name="Debug" build_exclude_from_build="No" />
+      </file>
     </folder>
     <folder Name="None">
       <file file_name="../../modules/nrfx/mdk/ses_startup_nrf52840.s" />
@@ -176,7 +183,9 @@
       <file file_name="../../components/drivers_nrf/nrf_soc_nosd/nrf_soc.c" />
       <file file_name="../../modules/nrfx/soc/nrfx_atomic.c" />
       <file file_name="../../modules/nrfx/drivers/src/nrfx_clock.c" />
-      <file file_name="../../modules/nrfx/drivers/src/nrfx_comp.c" />
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_comp.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
       <file file_name="../../modules/nrfx/drivers/src/nrfx_gpiote.c" />
       <file file_name="../../modules/nrfx/drivers/src/nrfx_i2s.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />
@@ -201,7 +210,9 @@
       <file file_name="../../modules/nrfx/drivers/src/nrfx_qspi.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
-      <file file_name="../../modules/nrfx/drivers/src/nrfx_rng.c" />
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_rng.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
       <file file_name="../../modules/nrfx/drivers/src/nrfx_rtc.c">
         <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
@@ -246,7 +257,9 @@
       <file file_name="../../external/thedotfactory_fonts/orkney8pts.c" />
     </folder>
     <folder Name="nRF_Libraries">
-      <file file_name="../../components/libraries/button/app_button.c" />
+      <file file_name="../../components/libraries/button/app_button.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
       <file file_name="../../components/libraries/util/app_error.c" />
       <file file_name="../../components/libraries/util/app_error_handler_gcc.c" />
       <file file_name="../../components/libraries/util/app_error_weak.c" />
@@ -264,8 +277,12 @@
         <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
       <file file_name="../../components/libraries/usbd/app_usbd.c" />
-      <file file_name="../../components/libraries/usbd/class/audio/app_usbd_audio.c" />
-      <file file_name="../../components/libraries/usbd/class/cdc/acm/app_usbd_cdc_acm.c" />
+      <file file_name="../../components/libraries/usbd/class/audio/app_usbd_audio.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../components/libraries/usbd/class/cdc/acm/app_usbd_cdc_acm.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
       <file file_name="../../components/libraries/usbd/app_usbd_core.c" />
       <file file_name="../../components/libraries/usbd/class/hid/app_usbd_hid.c" />
       <file file_name="../../components/libraries/usbd/class/hid/generic/app_usbd_hid_generic.c">
@@ -307,16 +324,16 @@
         <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
       <file file_name="../../external/fnmatch/fnmatch.c">
-        <configuration Name="Debug" build_exclude_from_build="Yes" />
+        <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
       <file file_name="../../external/cifra_AES128-EAX/gf128.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
       <file file_name="../../components/libraries/hardfault/nrf52/handler/hardfault_handler_gcc.c">
-        <configuration Name="Debug" build_exclude_from_build="Yes" />
+        <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
       <file file_name="../../components/libraries/hardfault/hardfault_implementation.c">
-        <configuration Name="Debug" build_exclude_from_build="Yes" />
+        <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
       <file file_name="../../components/libraries/hci/hci_mem_pool.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />
@@ -334,7 +351,7 @@
         <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
       <file file_name="../../components/libraries/mem_manager/mem_manager.c">
-        <configuration Name="Debug" build_exclude_from_build="No" />
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
       <file file_name="../../external/cifra_AES128-EAX/modes.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />
@@ -379,7 +396,7 @@
       </file>
       <file file_name="../../components/libraries/ringbuf/nrf_ringbuf.c" />
       <file file_name="../../components/libraries/experimental_section_vars/nrf_section_iter.c">
-        <configuration Name="Debug" build_exclude_from_build="Yes" />
+        <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
       <file file_name="../../components/libraries/sortlist/nrf_sortlist.c" />
       <file file_name="../../components/libraries/spi_mngr/nrf_spi_mngr.c">
@@ -395,7 +412,9 @@
       <file file_name="../../components/libraries/experimental_task_manager/task_manager.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
-      <file file_name="../../components/libraries/experimental_task_manager/task_manager_core_armgcc.S" />
+      <file file_name="../../components/libraries/experimental_task_manager/task_manager_core_armgcc.S">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
     </folder>
     <folder Name="nRF_Log">
       <file file_name="../../components/libraries/log/src/nrf_log_frontend.c" />

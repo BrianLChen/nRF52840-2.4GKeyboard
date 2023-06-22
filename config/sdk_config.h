@@ -5090,7 +5090,7 @@
 // <9=> 31.25 kHz 
 
 #ifndef TIMER_DEFAULT_CONFIG_FREQUENCY
-#define TIMER_DEFAULT_CONFIG_FREQUENCY 0
+#define TIMER_DEFAULT_CONFIG_FREQUENCY 4
 #endif
 
 // <o> TIMER_DEFAULT_CONFIG_MODE  - Timer mode or operation
@@ -5538,7 +5538,7 @@
  
 
 #ifndef NRF_TWI_SENSOR_ENABLED
-#define NRF_TWI_SENSOR_ENABLED 0
+#define NRF_TWI_SENSOR_ENABLED 1
 #endif
 
 // </h> 
@@ -5853,7 +5853,7 @@
 // <2=> Interrupt 
 
 #ifndef APP_USBD_CONFIG_SOF_HANDLING_MODE
-#define APP_USBD_CONFIG_SOF_HANDLING_MODE 1
+#define APP_USBD_CONFIG_SOF_HANDLING_MODE 2
 #endif
 
 // </e>
@@ -5933,7 +5933,7 @@
 // <i> Setting ID to 0 disables the string.
 //==========================================================
 #ifndef APP_USBD_STRING_ID_PRODUCT
-#define APP_USBD_STRING_ID_PRODUCT 2
+#define APP_USBD_STRING_ID_PRODUCT 1
 #endif
 // <q> APP_USBD_STRINGS_PRODUCT_EXTERN  - Define whether @ref APP_USBD_STRINGS_PRODUCT is created by macro or declared as a global variable.
  
@@ -5957,7 +5957,7 @@
 // <i> Setting ID to 0 disables the string.
 //==========================================================
 #ifndef APP_USBD_STRING_ID_SERIAL
-#define APP_USBD_STRING_ID_SERIAL 3
+#define APP_USBD_STRING_ID_SERIAL 1
 #endif
 // <q> APP_USBD_STRING_SERIAL_EXTERN  - Define whether @ref APP_USBD_STRING_SERIAL is created by macro or declared as a global variable.
  
@@ -5981,7 +5981,7 @@
 // <i> Setting ID to 0 disables the string.
 //==========================================================
 #ifndef APP_USBD_STRING_ID_CONFIGURATION
-#define APP_USBD_STRING_ID_CONFIGURATION 4
+#define APP_USBD_STRING_ID_CONFIGURATION 1
 #endif
 // <q> APP_USBD_STRING_CONFIGURATION_EXTERN  - Define whether @ref APP_USBD_STRINGS_CONFIGURATION is created by macro or declared as global variable.
  
@@ -6041,7 +6041,7 @@
 // <i> Must be higher than the highest report ID used.
 
 #ifndef APP_USBD_HID_REPORT_IDLE_TABLE_SIZE
-#define APP_USBD_HID_REPORT_IDLE_TABLE_SIZE 4
+#define APP_USBD_HID_REPORT_IDLE_TABLE_SIZE 2
 #endif
 
 // </e>
@@ -6050,7 +6050,7 @@
  
 
 #ifndef APP_USBD_HID_GENERIC_ENABLED
-#define APP_USBD_HID_GENERIC_ENABLED 0
+#define APP_USBD_HID_GENERIC_ENABLED 1
 #endif
 
 // <q> APP_USBD_HID_KBD_ENABLED  - app_usbd_hid_kbd - USB HID keyboard
@@ -6064,14 +6064,14 @@
  
 
 #ifndef APP_USBD_HID_MOUSE_ENABLED
-#define APP_USBD_HID_MOUSE_ENABLED 0
+#define APP_USBD_HID_MOUSE_ENABLED 1
 #endif
 
 // <q> APP_USBD_MSC_ENABLED  - app_usbd_msc - USB MSC class
  
 
 #ifndef APP_USBD_MSC_ENABLED
-#define APP_USBD_MSC_ENABLED 0
+#define APP_USBD_MSC_ENABLED 1
 #endif
 
 // <q> CRC16_ENABLED  - crc16 - CRC16 calculation routines

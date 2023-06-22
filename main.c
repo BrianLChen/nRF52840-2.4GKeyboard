@@ -58,9 +58,9 @@
 #include "custom_usbd_hid_kbd.h"
 // #include "Custom_Lib/app_usbd_hid_generic.h"
 #include "bsp.h"
-// #include "bsp_cli.h"
-// #include "nrf_cli.h"
-// #include "nrf_cli_uart.h"
+//#include "bsp_cli.h"
+//#include "nrf_cli.h"
+//#include "nrf_cli_uart.h"
 #include "nrfx_timer.h"
 
 #include "nrf_log.h"
@@ -302,20 +302,33 @@ static void scan_key(nrf_timer_event_t event_type, void *p_context)
     }
     KBD_Send(&m_app_hid_kbd, KEYBOARD_Rep_Buff);
     app_usbd_event_queue_process();
-    kbd_status();
+
+    // kbd_status();
 }
 
-void TXD_blink()
-{
-    for(;;)
-    {
-    nrf_gpio_pin_clear(TX_PIN_NUMBER);
-    nrf_delay_ms(1000);
-    nrf_gpio_pin_set(TX_PIN_NUMBER);
-    nrf_delay_ms(1000);
-    }
-}
+/**
+ * @brief Auxiliary internal macro
+ *
+ * Macro used only in @ref init_bsp to simplify the configuration
+ */
+//#define INIT_BSP_ASSIGN_RELEASE_ACTION(btn) \
+//    APP_ERROR_CHECK(                        \
+//        bsp_event_to_button_action_assign(  \
+//            btn,                            \
+//            BSP_BUTTON_ACTION_RELEASE,      \
+//            (bsp_event_t)CONCAT_2(BSP_USER_EVENT_RELEASE_, btn)))
 
+// static void init_bsp(void)
+//{
+//     ret_code_t ret;
+//     ret = bsp_init(BSP_INIT_BUTTONS, bsp_event_callback);
+//     APP_ERROR_CHECK(ret);
+
+//    INIT_BSP_ASSIGN_RELEASE_ACTION(BTN_KBD);
+
+//    /* Configure LEDs */
+//    bsp_board_init(BSP_INIT_LEDS);
+//}
 
 // Function to init Wire Mode Keyboard
 void Wire_Mode()
@@ -361,7 +374,6 @@ void Wire_Mode()
     uint32_t time_ticks;
     uint32_t err_code = NRF_SUCCESS;
     nrfx_timer_config_t timer_cfg = NRFX_TIMER_DEFAULT_CONFIG;
-    timer_cfg.interrupt_priority = 6;
     err_code = nrfx_timer_init(&TIMER_KBD, &timer_cfg, scan_key);
     APP_ERROR_CHECK(err_code);
 
@@ -370,7 +382,7 @@ void Wire_Mode()
     // Set compare, when counter value = time_ticks -> interrupt
     nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
     // nrfx_timer_compare_int_enable(&TIMER_KBD, NRF_TIMER_INT_COMPARE0);
-    // nrfx_timer_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, true);
+    nrfx_timer_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, true);
 
     if (USBD_POWER_DETECTION)
     {
@@ -394,21 +406,19 @@ void Wire_Mode()
 
     nrf_gpio_cfg_output(TX_PIN_NUMBER);
     nrf_gpio_cfg_output(RX_PIN_NUMBER);
-    
-    TXD_blink();
     while (true)
     {
-      __WFE();
-        //LED_On(TX_PIN_NUMBER);
-        //nrf_delay_ms(1000);
-        //LED_Off(TX_PIN_NUMBER);
-        //nrf_delay_ms(1000);
+        LED_On(TX_PIN_NUMBER);
+        nrf_delay_ms(1000);
+        LED_Off(TX_PIN_NUMBER);
+        nrf_delay_ms(1000);
         // while (app_usbd_event_queue_process())
         //{
         //     /* Nothing to do */
         // }
     }
 }
+
 
 /**
  * @brief Function to control the LED outputs.
@@ -614,11 +624,16 @@ void Wireless_Mode()
 
 int main(void)
 {
-    nrf_gpio_cfg_input(Mode_Pin, NRF_GPIO_PIN_PULLUP);
+    //if(1)
+    //Wire_Mode();
+    //else
+    //Wireless_Mode();
+
+        nrf_gpio_cfg_input(Mode_Pin, NRF_GPIO_PIN_PULLUP);
     uint32_t mode = nrf_gpio_pin_read(Mode_Pin);
 
-    if (mode != 0)
-        Wire_Mode();
-    else
-        Wireless_Mode();
+     if(mode != 0)
+    Wire_Mode();
+     else
+     Wireless_Mode();
 }
