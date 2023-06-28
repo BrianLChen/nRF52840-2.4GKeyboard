@@ -42,11 +42,11 @@
       project_directory=""
       project_type="Executable" />
     <folder Name="Application">
-      <file file_name="main.c">
-        <configuration Name="Debug" build_exclude_from_build="Yes" />
-      </file>
       <file file_name="Application/main.c">
         <configuration Name="Debug" build_exclude_from_build="No" />
+      </file>
+      <file file_name="main.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
       <file file_name="config/sdk_config.h">
         <configuration Name="Debug" build_exclude_from_build="No" />
@@ -164,7 +164,7 @@
         <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
       <file file_name="../../integration/nrfx/legacy/nrf_drv_spi.c">
-        <configuration Name="Debug" build_exclude_from_build="Yes" />
+        <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
       <file file_name="../../integration/nrfx/legacy/nrf_drv_spis.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />

@@ -55,12 +55,10 @@
 #include "app_timer.h"
 #include "app_usbd.h"
 #include "app_usbd_core.h"
-#include "custom_usbd_hid_kbd.h"
-// #include "Custom_Lib/app_usbd_hid_generic.h"
 #include "bsp.h"
-// #include "bsp_cli.h"
-// #include "nrf_cli.h"
-// #include "nrf_cli_uart.h"
+#include "custom_usbd_hid_kbd.h"
+#include "nrf_drv_spi.h"
+#include "nrfx_spi.h"
 #include "nrfx_timer.h"
 
 #include "nrf_log.h"
@@ -72,19 +70,43 @@
 
 /* Gazell Config */
 #define PIPE_NUMBER 1        /**< Pipe 0 is used in this example. */
-#define TX_PAYLOAD_LENGTH 16 /**< 1-byte payload length is used when transmitting. */
-#define RX_Receive_Length
+#define TX_PAYLOAD_LENGTH 17 /**< 1-byte payload length is used when transmitting. */
+#define RX_RECEIVE_LENGTH 1
 #define MAX_TX_ATTEMPTS 20 /**< Maximum number of transmission attempts */
+#define Channel_Table_Size 5
+// #define SPI_LENGTH 2
+// #define SPI_INSTANCE 1
 
-#define Mode_Pin NRF_GPIO_PIN_MAP(0, 26)
+#define Mode_Pin NRF_GPIO_PIN_MAP(1, 15)
+#define PL_Pin NRF_GPIO_PIN_MAP(1, 11)
 
-static uint8_t m_data_payload[TX_PAYLOAD_LENGTH];                /**< Payload to send to Host. */
-static uint8_t m_ack_payload[NRF_GZLL_CONST_MAX_PAYLOAD_LENGTH]; /**< Placeholder for received ACK payloads from Host. */
+static uint8_t m_data_payload[TX_PAYLOAD_LENGTH]; /**< Payload to send to Host. */
+static uint8_t m_ack_payload[RX_RECEIVE_LENGTH];  /**< Placeholder for received ACK payloads from Host. */
+uint8_t Channel_Table[Channel_Table_Size] = {4, 25, 42, 63, 77};
 
 const nrfx_timer_t TIMER_KBD = NRFX_TIMER_INSTANCE(1);
 
-uint8_t KEYBOARD_Rep_Buff[17];
-uint8_t CONSUMER_Rep_Buff[2];
+uint8_t KEYBOARD_Rep_Buff[keyboard_rep_byte];
+uint8_t KEYBOARD_Rep_Buff_Prev[keyboard_rep_byte];
+uint8_t CONSUMER_Rep_Buff[consumer_rep_byte];
+uint8_t CONSUMER_Rep_Buff_Prev[consumer_rep_byte];
+// define SPI instance
+// static const nrfx_spi_t spi = NRFX_SPI_INSTANCE(1);
+static const nrf_drv_spi_t scan_spi = NRF_DRV_SPI_INSTANCE(2);
+// static volatile bool spi_xfer_done; /**< Flag used to indicate that SPI instance completed the transfer. */
+
+static uint8_t m_tx_buff[2];
+static uint8_t m_rx_buff[2];
+static uint8_t scan_buff;
+
+uint8_t test;
+
+// static inline const nrfx_spim_xfer_desc_t spi_desc = {m_tx_buff, 2, m_rx_buff, 2};
+
+// #define spi_desc NRFX_SPIM_SINGLE_XFER(m_tx_buff, 2, m_rx_buff, 2);
+
+uint8_t KEY_TABLE[8] = {KEYBOARD_A, KEYBOARD_B, KEYBOARD_C, KEYBOARD_D,
+    KEYBOARD_E, KEYBOARD_F, KEYBOARD_MENU, CONSUMER_MUTE};
 
 /**
  * @brief Enable USB power detection
@@ -93,47 +115,10 @@ uint8_t CONSUMER_Rep_Buff[2];
 #define USBD_POWER_DETECTION true
 #endif
 
-///**
-// * @brief Enable HID keyboard class
-// */
-// #define CONFIG_HAS_KBD      1
-
-/**
- * @brief Letter to be sent on LETTER button
- *
- * @sa BTN_KBD
- */
-#define CONFIG_KBD_LETTER CUSTOM_USBD_HID_KBD_A
-
-#define LED_CAPSLOCK (BSP_BOARD_LED_0)  /**< CAPSLOCK LED0 */
-#define LED_NUMLOCK (BSP_BOARD_LED_1)   /**< NUMLOCK LED1 */
-#define LED_HID_REP (BSP_BOARD_LED_2)   /**< Changes its state if any HID report was received or transmitted LED 2*/
-#define LED_USB_START (BSP_BOARD_LED_3) /**< The USBD library has been started and the bus is not in SUSPEND state LED3 */
-
-// #define BTN_KBD_SHIFT 1
-#define BTN_KBD 0
-/**
- * @brief Additional key release events
- *
- * This example needs to process release events of used buttons
- */
-enum
-{
-    BSP_USER_EVENT_RELEASE_0 = BSP_EVENT_KEY_LAST + 1, /**< Button 0 released */
-    BSP_USER_EVENT_RELEASE_1,                          /**< Button 1 released */
-    BSP_USER_EVENT_RELEASE_2,                          /**< Button 2 released */
-    BSP_USER_EVENT_RELEASE_3,                          /**< Button 3 released */
-    BSP_USER_EVENT_RELEASE_4,                          /**< Button 4 released */
-    BSP_USER_EVENT_RELEASE_5,                          /**< Button 5 released */
-    BSP_USER_EVENT_RELEASE_6,                          /**< Button 6 released */
-    BSP_USER_EVENT_RELEASE_7,                          /**< Button 7 released */
-};
-
 /**
  * @brief USB composite interfaces
  */
 #define APP_USBD_INTERFACE_KBD 0
-#define CUSTOM_USBD_INTERFACE_CONSUMER 1
 /**
  * @brief User event handler, HID keyboard
  */
@@ -150,36 +135,26 @@ APP_USBD_HID_KBD_GLOBAL_DEF(m_app_hid_kbd,
     NRF_DRV_USBD_EPIN1,
     hid_kbd_user_ev_handler,
     APP_USBD_HID_SUBCLASS_BOOT);
-
-// APP_USBD_HID_KBD_GLOBAL_DEF(consumer_hid,
-//     CUSTOM_USBD_INTERFACE_CONSUMER,
-//     NRF_DRV_USBD_EPIN1,
-//     hid_kbd_user_ev_handler,
-//     APP_USBD_HID_SUBCLASS_BOOT);
-
 /*lint -restore*/
 
-static void kbd_status(void)
+// Get keyboard LED indicator status
+static inline void kbd_status(void)
 {
     if (app_usbd_hid_kbd_led_state_get(&m_app_hid_kbd, APP_USBD_HID_KBD_LED_NUM_LOCK))
     {
-        // bsp_board_led_on(LED_NUMLOCK);
         LED_On(LED1);
     }
     else
     {
-        // bsp_board_led_off(LED_NUMLOCK);
         LED_Off(LED1);
     }
 
     if (app_usbd_hid_kbd_led_state_get(&m_app_hid_kbd, APP_USBD_HID_KBD_LED_CAPS_LOCK))
     {
-        // bsp_board_led_on(LED_CAPSLOCK);
         LED_On(LED0);
     }
     else
     {
-        // bsp_board_led_off(LED_CAPSLOCK);
         LED_Off(LED0);
     }
 }
@@ -198,11 +173,11 @@ static void hid_kbd_user_ev_handler(app_usbd_class_inst_t const *p_inst,
     {
     case APP_USBD_HID_USER_EVT_OUT_REPORT_READY:
         /* Only one output report IS defined for HID keyboard class. Update LEDs state. */
-        // LED_invert(LED2);
+        LED_invert(LED2);
         kbd_status();
         break;
     case APP_USBD_HID_USER_EVT_IN_REPORT_DONE:
-        // LED_invert(LED2);
+        LED_invert(LED2);
         break;
     case APP_USBD_HID_USER_EVT_SET_BOOT_PROTO:
         UNUSED_RETURN_VALUE(hid_kbd_clear_buffer(p_inst));
@@ -234,7 +209,7 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
     case APP_USBD_EVT_DRV_RESUME:
         // bsp_board_led_on(LED_USB_START);
         LED_On(LED3);
-        kbd_status(); /* Restore LED state - during SUSPEND all LEDS are turned off */
+        // kbd_status(); /* Restore LED state - during SUSPEND all LEDS are turned off */
         break;
     case APP_USBD_EVT_STARTED:
         // bsp_board_led_on(LED_USB_START);
@@ -270,56 +245,131 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
 }
 
 // A function to appley debounce filter
-uint32_t debouncefilter(uint8_t delay)
+static inline uint32_t debouncefilter(uint16_t delay)
 {
-    uint32_t i;
-    i = nrf_gpio_pin_read(Key1);
+    // uint32_t i;
+    // i = nrf_gpio_pin_read(Key1);
+    // nrf_delay_us(delay);
+    // if (i == nrf_gpio_pin_read(Key1))
+    //{
+    //     return i;
+    // }
+    // else
+    //{
+    //     return ~i;
+    // }
+    uint8_t scan_output;
     nrf_delay_us(delay);
-    if (i == nrf_gpio_pin_read(Key1))
+    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    scan_output = scan_buff ^ m_rx_buff[0];
+    scan_buff = scan_output;
+}
+
+inline void remap()
+{
+    uint8_t bitIndex, index;
+    uint8_t remap_buff = ~scan_buff;
+    for (uint8_t i = 0; i < 8; i++)
     {
-        return i;
-    }
-    else
-    {
-        return ~i;
+        uint8_t temp = 0x01 << i;
+        uint8_t temp2 = temp & remap_buff;
+        if (remap_buff & (0x01 << i))
+        {
+            bitIndex = KEY_TABLE[i] % 8;
+            index = KEY_TABLE[i] / 8;
+            if (index < 17)
+                KEYBOARD_Rep_Buff[index] = (0x01 << bitIndex) | KEYBOARD_Rep_Buff[index];
+            else
+                CONSUMER_Rep_Buff[1] = (0x01 << bitIndex) | CONSUMER_Rep_Buff[1];
+        }
+        else
+        {
+            continue;
+        }
     }
 }
 
 // Function to scan the key state
-static void scan_key(nrf_timer_event_t event_type, void *p_context)
+static inline void scan_key(nrf_timer_event_t event_type, void *p_context)
 {
-    uint32_t a = debouncefilter(100);
+    nrf_gpio_pin_set(PL_Pin);
 
-    if (a != 0)
+    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    scan_buff = m_rx_buff[0];
+
+    uint32_t a = debouncefilter(100);
+    // int test = memcmp(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
+    // if (a == 0)
+    // if (scan_buff == 0xfe)
+    //{
+    //    KEYBOARD_Rep_Buff[0] = 0x01;
+    //    KEYBOARD_Rep_Buff[2] = 0x10;
+    //}
+    // else
+    //{
+    //    memset(&KEYBOARD_Rep_Buff[1], 0, keyboard_rep_byte - 1);
+    //    // KEYBOARD_Rep_Buff[0] = 0x01;
+    //}
+
+    memset(&KEYBOARD_Rep_Buff[1], 0, keyboard_rep_byte - 1);
+    memset(&CONSUMER_Rep_Buff[1], 0, consumer_rep_byte - 1);
+
+    remap();
+    // int test = memcmp(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
+    // if Keyboard report buff has changed
+    if (memcmp(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1))
     {
-        memset(KEYBOARD_Rep_Buff, 0, 17);
-        KEYBOARD_Rep_Buff[0] = 0x01;
+        //test = 1;
+        KBD_Send(&m_app_hid_kbd, KEYBOARD_Rep_Buff);
     }
+    // else if consumer report buffer has changed
+    else if (memcmp(&CONSUMER_Rep_Buff_Prev[1], &CONSUMER_Rep_Buff[1], consumer_rep_byte - 1))
+    {
+        //test = 2;
+        KBD_Send(&m_app_hid_kbd, CONSUMER_Rep_Buff);
+    }
+    // if none of the report buffers are change
     else
     {
-        KEYBOARD_Rep_Buff[0] = 0x01;
-        KEYBOARD_Rep_Buff[2] = 0x10;
+        app_usbd_event_queue_process();
+        nrf_gpio_pin_clear(PL_Pin);
+        return;
     }
-    KBD_Send(&m_app_hid_kbd, KEYBOARD_Rep_Buff);
+
     app_usbd_event_queue_process();
-    kbd_status();
+
+    memcpy(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
+    memcpy(&CONSUMER_Rep_Buff_Prev[1], &CONSUMER_Rep_Buff[1], consumer_rep_byte - 1);
+
+    nrf_gpio_pin_clear(PL_Pin);
+    // kbd_status();
 }
 
 void TXD_blink()
 {
-    for(;;)
+    for (;;)
     {
-    nrf_gpio_pin_clear(TX_PIN_NUMBER);
-    nrf_delay_ms(1000);
-    nrf_gpio_pin_set(TX_PIN_NUMBER);
-    nrf_delay_ms(1000);
+        nrf_gpio_pin_clear(TX_PIN_NUMBER);
+        nrf_delay_ms(1000);
+        nrf_gpio_pin_set(TX_PIN_NUMBER);
+        nrf_delay_ms(1000);
     }
 }
 
+void Pin_Cfg(void)
+{
+    nrf_gpio_cfg_output(TX_PIN_NUMBER);
+    nrf_gpio_cfg_output(RX_PIN_NUMBER);
+    nrf_gpio_cfg_output(LED0);
+    nrf_gpio_cfg_output(LED1);
+
+    nrf_gpio_cfg_input(Key1, NRF_GPIO_PIN_PULLUP); // Input_button
+}
 
 // Function to init Wire Mode Keyboard
 void Wire_Mode()
 {
+    Pin_Cfg();
     ret_code_t ret;
     static const app_usbd_config_t usbd_config = {
         .ev_state_proc = usbd_user_ev_handler,
@@ -356,21 +406,23 @@ void Wire_Mode()
 
     // NRF_LOG_INFO("USBD HID composite example started.");
 
-    nrf_gpio_cfg_input(Key1, NRF_GPIO_PIN_PULLUP);
     uint32_t time_ms = 1; // Time(in miliseconds) between consecutive compare events.
     uint32_t time_ticks;
     uint32_t err_code = NRF_SUCCESS;
     nrfx_timer_config_t timer_cfg = NRFX_TIMER_DEFAULT_CONFIG;
-    timer_cfg.interrupt_priority = 6;
+    timer_cfg.interrupt_priority = 7;
     err_code = nrfx_timer_init(&TIMER_KBD, &timer_cfg, scan_key);
     APP_ERROR_CHECK(err_code);
 
-    time_ticks = nrfx_timer_ms_to_ticks(&TIMER_KBD, time_ms);
+    // time_ticks = nrfx_timer_ms_to_ticks(&TIMER_KBD, time_ms);
+    time_ticks = nrfx_timer_us_to_ticks(&TIMER_KBD, 900);
 
     // Set compare, when counter value = time_ticks -> interrupt
     nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
-    // nrfx_timer_compare_int_enable(&TIMER_KBD, NRF_TIMER_INT_COMPARE0);
-    // nrfx_timer_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, true);
+
+    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    memset(m_rx_buff, 0, 2);
 
     if (USBD_POWER_DETECTION)
     {
@@ -392,21 +444,18 @@ void Wire_Mode()
 
     nrfx_timer_enable(&TIMER_KBD);
 
-    nrf_gpio_cfg_output(TX_PIN_NUMBER);
-    nrf_gpio_cfg_output(RX_PIN_NUMBER);
-    
-    TXD_blink();
+    // TXD_blink();
     while (true)
     {
-      __WFE();
-        //LED_On(TX_PIN_NUMBER);
-        //nrf_delay_ms(1000);
-        //LED_Off(TX_PIN_NUMBER);
-        //nrf_delay_ms(1000);
-        // while (app_usbd_event_queue_process())
+        __WFE();
+        // LED_On(TX_PIN_NUMBER);
+        // nrf_delay_ms(1000);
+        // LED_Off(TX_PIN_NUMBER);
+        // nrf_delay_ms(1000);
+        //  while (app_usbd_event_queue_process())
         //{
-        //     /* Nothing to do */
-        // }
+        //      /* Nothing to do */
+        //  }
     }
 }
 
@@ -452,19 +501,61 @@ static void output_present(uint8_t val)
  */
 void input_get(uint8_t *array)
 {
-    uint32_t a = debouncefilter(100);
+    // uint32_t a = debouncefilter(100);
     memset(array, 0, 17);
 
-    if (a != 0)
+    // if (a != 0)
+    //{
+    //     // memset(array, 0, 17);
+    //     array[0] = 0x01;
+    // }
+    // else
+    //{
+    //     array[0] = 0x01;
+    //     array[2] = 0x10;
+    // }
+    nrf_gpio_pin_set(PL_Pin);
+
+    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    scan_buff = m_rx_buff[0];
+
+    uint32_t a = debouncefilter(100);
+    // int test = memcmp(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
+    // if (a == 0)
+    // if (scan_buff == 0xfe)
+    //{
+    //    KEYBOARD_Rep_Buff[0] = 0x01;
+    //    KEYBOARD_Rep_Buff[2] = 0x10;
+    //}
+    // else
+    //{
+    //    memset(&KEYBOARD_Rep_Buff[1], 0, keyboard_rep_byte - 1);
+    //    // KEYBOARD_Rep_Buff[0] = 0x01;
+    //}
+    memset(&KEYBOARD_Rep_Buff[1], 0, keyboard_rep_byte - 1);
+    remap();
+    // int test = memcmp(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
+    // if Keyboard report buff has changed
+    if (memcmp(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1))
     {
-        // memset(array, 0, 17);
-        array[0] = 0x01;
+        memcpy(array, KEYBOARD_Rep_Buff, keyboard_rep_byte);
     }
+    // else if consumer report buffer has changed
+    else if (memcmp(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], consumer_rep_byte - 1))
+    {
+        memcpy(array, CONSUMER_Rep_Buff, consumer_rep_byte);
+    }
+    // if none of the report buffers are change
     else
     {
-        array[0] = 0x01;
-        array[2] = 0x10;
+        nrf_gpio_pin_clear(PL_Pin);
+        return;
     }
+
+    memcpy(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
+    memcpy(&CONSUMER_Rep_Buff_Prev[1], &CONSUMER_Rep_Buff[1], consumer_rep_byte - 1);
+    nrf_gpio_pin_clear(PL_Pin);
+    // kbd_status();
 }
 
 /**
@@ -474,13 +565,6 @@ static void ui_init(void)
 {
     uint32_t err_code;
     nrf_gpio_cfg_input(Key1, NRF_GPIO_PIN_PULLUP);
-    // Initialize application timer.
-    // err_code = app_timer_init();
-    // APP_ERROR_CHECK(err_code);
-
-    //// BSP initialization.
-    // err_code = bsp_init(BSP_INIT_LEDS | BSP_INIT_BUTTONS, NULL);
-    // APP_ERROR_CHECK(err_code);
 
     // Set up logger
     err_code = NRF_LOG_INIT(NULL);
@@ -526,16 +610,13 @@ void nrf_gzll_device_tx_success(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info
     // Load data payload into the TX queue.
     input_get(m_data_payload);
 
-    result_value = nrf_gzll_add_packet_to_tx_fifo(pipe, m_data_payload, TX_PAYLOAD_LENGTH);
+    // result_value = nrf_gzll_add_packet_to_tx_fifo(pipe, m_data_payload, TX_PAYLOAD_LENGTH);
+    result_value = nrf_gzll_add_packet_to_tx_fifo(pipe, KEYBOARD_Rep_Buff, TX_PAYLOAD_LENGTH);
+
     if (!result_value)
     {
         NRF_LOG_ERROR("TX fifo error ");
     }
-
-#if GZLL_PA_LNA_CONTROL
-    m_rssi_sum += tx_info.rssi;
-    m_packets_cnt++;
-#endif
 }
 
 /**
@@ -585,12 +666,20 @@ void Wireless_Mode()
     // Initialize Gazell.
     bool result_value = nrf_gzll_init(NRF_GZLL_MODE_DEVICE);
     GAZELLE_ERROR_CODE_CHECK(result_value);
+    nrf_gzll_set_timeslot_period(500);
 
     // set base address for pipe1
     result_value = nrf_gzll_set_base_address_1(0xbc010827);
     GAZELLE_ERROR_CODE_CHECK(result_value);
     result_value = nrf_gzll_set_address_prefix_byte(PIPE_NUMBER, 0x27);
     GAZELLE_ERROR_CODE_CHECK(result_value);
+
+    // set frequency hopping
+    nrf_gzll_set_channel_table(Channel_Table, Channel_Table_Size);
+    nrf_gzll_set_timeslots_per_channel(4);
+    nrf_gzll_set_timeslots_per_channel_when_device_out_of_sync(2);
+    nrf_gzll_set_device_channel_selection_policy(NRF_GZLL_DEVICE_CHANNEL_SELECTION_POLICY_USE_CURRENT);
+    nrf_gzll_set_sync_lifetime(8);
 
     // Attempt sending every packet up to MAX_TX_ATTEMPTS times.
     nrf_gzll_set_max_tx_attempts(MAX_TX_ATTEMPTS);
@@ -599,11 +688,18 @@ void Wireless_Mode()
 
     result_value = nrf_gzll_add_packet_to_tx_fifo(PIPE_NUMBER, m_data_payload, TX_PAYLOAD_LENGTH);
 
+    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    memset(m_rx_buff, 0, 2);
+
     // Enable Gazell to start sending over the air.
     result_value = nrf_gzll_enable();
     GAZELLE_ERROR_CODE_CHECK(result_value);
 
     // NRF_LOG_INFO("Gzll ack payload device example started.");
+
+    Pin_Cfg();
+    // TXD_blink();
 
     while (true)
     {
@@ -614,7 +710,26 @@ void Wireless_Mode()
 
 int main(void)
 {
+    KEYBOARD_Rep_Buff[0] = 0x01;
+    KEYBOARD_Rep_Buff_Prev[0] = 0x01;
+    CONSUMER_Rep_Buff[0] = 0x02;
+    CONSUMER_Rep_Buff_Prev[0] = 0x02;
+
+    m_tx_buff[0] = 0x00;
+    m_tx_buff[1] = 0x00;
+
     nrf_gpio_cfg_input(Mode_Pin, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_output(PL_Pin);
+
+    nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG;
+    spi_config.ss_pin = SER_APP_SPIM0_SS_PIN;
+    spi_config.miso_pin = SER_APP_SPIM0_MISO_PIN;
+    spi_config.mosi_pin = NRFX_SPIM_PIN_NOT_USED;
+    spi_config.sck_pin = SER_APP_SPIM0_SCK_PIN;
+    spi_config.frequency = NRF_SPIM_FREQ_4M;
+
+    APP_ERROR_CHECK(nrf_drv_spi_init(&scan_spi, &spi_config, NULL, NULL));
+
     uint32_t mode = nrf_gpio_pin_read(Mode_Pin);
 
     if (mode != 0)
