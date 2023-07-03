@@ -3136,7 +3136,7 @@
  
 
 #ifndef NRFX_SPI0_ENABLED
-#define NRFX_SPI0_ENABLED 0
+#define NRFX_SPI0_ENABLED 1
 #endif
 
 // <q> NRFX_SPI1_ENABLED  - Enable SPI1 instance
@@ -3368,7 +3368,7 @@
  
 
 #ifndef NRFX_TIMER2_ENABLED
-#define NRFX_TIMER2_ENABLED 0
+#define NRFX_TIMER2_ENABLED 1
 #endif
 
 // <q> NRFX_TIMER3_ENABLED  - Enable TIMER3 instance
@@ -5029,7 +5029,7 @@
  
 
 #ifndef SPI0_USE_EASY_DMA
-#define SPI0_USE_EASY_DMA 1
+#define SPI0_USE_EASY_DMA 0
 #endif
 
 // </e>
@@ -5043,7 +5043,7 @@
  
 
 #ifndef SPI1_USE_EASY_DMA
-#define SPI1_USE_EASY_DMA 1
+#define SPI1_USE_EASY_DMA 0
 #endif
 
 // </e>
@@ -5148,7 +5148,7 @@
  
 
 #ifndef TIMER2_ENABLED
-#define TIMER2_ENABLED 0
+#define TIMER2_ENABLED 1
 #endif
 
 // <q> TIMER3_ENABLED  - Enable TIMER3 instance

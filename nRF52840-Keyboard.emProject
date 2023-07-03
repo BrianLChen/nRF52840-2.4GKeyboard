@@ -45,9 +45,6 @@
       <file file_name="Application/main.c">
         <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
-      <file file_name="main.c">
-        <configuration Name="Debug" build_exclude_from_build="Yes" />
-      </file>
       <file file_name="config/sdk_config.h">
         <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
@@ -59,6 +56,8 @@
       <file file_name="../../components/libraries/bsp/bsp.c" />
     </folder>
     <folder Name="Custom_Lib">
+      <file file_name="../../Custom_Lib/Key.c" />
+      <file file_name="../../Custom_Lib/Key.h" />
       <file file_name="../../Custom_Lib/LED.c" />
       <file file_name="../../Custom_Lib/custom_usbd_hid_kbd.c">
         <configuration Name="Debug" build_exclude_from_build="No" />
