@@ -75,8 +75,6 @@
 #define RX_RECEIVE_LENGTH 1
 #define MAX_TX_ATTEMPTS 20 /**< Maximum number of transmission attempts */
 #define Channel_Table_Size 5
-// #define SPI_LENGTH 2
-// #define SPI_INSTANCE 1
 
 /* Mode Detect Pin */
 #define WIRE_MODE_PIN NRF_GPIO_PIN_MAP(1, 1)
@@ -97,19 +95,20 @@ const nrfx_timer_t TIMER_KBD = NRFX_TIMER_INSTANCE(1);
 const nrfx_timer_t TIMER_SLEEP = NRFX_TIMER_INSTANCE(2);
 
 // KEYBOARD BUFF
-uint8_t KEYBOARD_Rep_Buff[keyboard_rep_byte];
-uint8_t KEYBOARD_Rep_Buff_Prev[keyboard_rep_byte];
-uint8_t CONSUMER_Rep_Buff[consumer_rep_byte];
-uint8_t CONSUMER_Rep_Buff_Prev[consumer_rep_byte];
+uint8_t KEYBOARD_Rep_Buff[keyboard_rep_byte] = {0};
+uint8_t KEYBOARD_Rep_Buff_Prev[keyboard_rep_byte] = {0};
+uint8_t CONSUMER_Rep_Buff[consumer_rep_byte] = {0};
+uint8_t CONSUMER_Rep_Buff_Prev[consumer_rep_byte] = {0};
+const uint8_t ZERO_buff[16] = {0};
 
 // SPI
-// static const nrfx_spi_t spi = NRFX_SPI_INSTANCE(1);
-static const nrf_drv_spi_t scan_spi = NRF_DRV_SPI_INSTANCE(2);
-// static volatile bool spi_xfer_done; /**< Flag used to indicate that SPI instance completed the transfer. */
+static const nrfx_spi_t scan_spi = NRFX_SPI_INSTANCE(0);
 
 static uint8_t m_tx_buff[2];
 static uint8_t m_rx_buff[2];
-static uint8_t scan_buff;
+static uint8_t scan_buff = {0};
+
+static const nrfx_spi_xfer_desc_t scan_spi_desc = {m_tx_buff, 2, m_rx_buff, 2};
 
 uint32_t Sleep_Time_Out_Counter = 0; // counter for sleep time
 uint8_t Mode;                        // Mode indicator
@@ -147,7 +146,7 @@ APP_USBD_HID_KBD_GLOBAL_DEF(m_app_hid_kbd,
 /*lint -restore*/
 
 // Get keyboard LED indicator status
-static inline void kbd_status(void)
+static void kbd_status(void)
 {
     if (app_usbd_hid_kbd_led_state_get(&m_app_hid_kbd, APP_USBD_HID_KBD_LED_NUM_LOCK))
     {
@@ -174,7 +173,9 @@ void Pin_Cfg(void)
     nrf_gpio_cfg_output(RX_PIN_NUMBER);
     nrf_gpio_cfg_output(LED0);
     nrf_gpio_cfg_output(LED1);
+
     nrf_gpio_cfg_output(PL_Pin);
+    nrf_gpio_pin_clear(PL_Pin);
 
     nrf_gpio_cfg_input(Key1, NRF_GPIO_PIN_PULLUP); // Input_button
     nrf_gpio_cfg_input(WIRE_MODE_PIN, NRF_GPIO_PIN_PULLUP);
@@ -184,6 +185,7 @@ void Pin_Cfg(void)
     // nrf_gpio_cfg_input(Mode_Pin, NRF_GPIO_PIN_PULLUP);
 }
 
+/* Check Mode switch, if value changes, reset the system */
 void Check_Mode()
 {
     switch (Mode)
@@ -220,6 +222,8 @@ void Check_Mode()
         }
     }
 }
+
+// config wake up key before ture into system off mode
 void wake_up_key()
 {
     nrf_gpio_cfg_input(WEEK_UP_PIN, NRF_GPIO_PIN_NOPULL);
@@ -242,7 +246,7 @@ static bool shutdown_handler(nrf_pwr_mgmt_evt_t event)
 /* register wakeup to priority 0 */
 NRF_PWR_MGMT_HANDLER_REGISTER(shutdown_handler, 0);
 
-void Enter_Sleep_Mode()
+static void Enter_Sleep_Mode()
 {
     nrf_gpio_cfg_default(MOS_CTRL_PIN);
 
@@ -252,6 +256,8 @@ void Enter_Sleep_Mode()
     nrf_gpio_cfg_default(LED3);
 
     nrfx_timer_disable(&TIMER_SLEEP);
+    nrfx_spi_uninit(&scan_spi);
+    nrf_gzll_disable();
 
     nrf_pwr_mgmt_shutdown(NRF_PWR_MGMT_SHUTDOWN_GOTO_SYSOFF);
 }
@@ -342,7 +348,7 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
 }
 
 // Add 1 to Sleep counter very 1 second
-void Sleep_Counter(nrf_timer_event_t event_type, void *p_context)
+static inline void Sleep_Counter(nrf_timer_event_t event_type, void *p_context)
 {
     Sleep_Time_Out_Counter += 1;
     if (Sleep_Time_Out_Counter == 10)
@@ -358,7 +364,7 @@ static inline uint32_t debouncefilter(uint16_t delay)
 {
     uint8_t scan_output;
     nrf_delay_us(delay);
-    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
     scan_output = scan_buff ^ m_rx_buff[0];
     scan_buff = scan_output;
 }
@@ -388,11 +394,11 @@ inline void remap()
 }
 
 // Function to scan the key state
-static inline void scan_key(nrf_timer_event_t event_type, void *p_context)
+static void scan_key(nrf_timer_event_t event_type, void *p_context)
 {
     nrf_gpio_pin_set(PL_Pin);
 
-    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
     scan_buff = m_rx_buff[0];
 
     uint32_t a = debouncefilter(100);
@@ -463,21 +469,16 @@ void Wire_Mode()
 
     APP_ERROR_CHECK(ret);
 
-    uint32_t time_ms = 1; // Time(in miliseconds) between consecutive compare events.
     uint32_t time_ticks;
     uint32_t err_code = NRF_SUCCESS;
     nrfx_timer_config_t timer_cfg = NRFX_TIMER_DEFAULT_CONFIG;
     timer_cfg.interrupt_priority = 7;
     err_code = nrfx_timer_init(&TIMER_KBD, &timer_cfg, scan_key);
     APP_ERROR_CHECK(err_code);
-
-    // time_ticks = nrfx_timer_ms_to_ticks(&TIMER_KBD, time_ms);
     time_ticks = nrfx_timer_us_to_ticks(&TIMER_KBD, 900);
-
     // Set compare, when counter value = time_ticks -> interrupt
     nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
-
-    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
     // APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
     memset(m_rx_buff, 0, 2);
 
@@ -552,7 +553,7 @@ void input_get(uint8_t *array)
     memset(array, 0, 17);
     nrf_gpio_pin_set(PL_Pin);
 
-    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
     scan_buff = m_rx_buff[0];
 
     uint32_t a = debouncefilter(100);
@@ -565,12 +566,14 @@ void input_get(uint8_t *array)
     if (memcmp(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1))
     {
         memcpy(array, KEYBOARD_Rep_Buff, keyboard_rep_byte);
+        Sleep_Time_Out_Counter = 0; // Set sleep counter to 0
     }
     // else if consumer report buffer has changed
     else if (memcmp(&CONSUMER_Rep_Buff_Prev[1], &CONSUMER_Rep_Buff[1], consumer_rep_byte - 1))
     {
         array[0] = CONSUMER_Rep_Buff[0];
         array[1] = CONSUMER_Rep_Buff[1];
+        Sleep_Time_Out_Counter = 0; // Set sleep counter to 0
     }
     // if none of the report buffers are change
     else
@@ -593,7 +596,6 @@ void input_get(uint8_t *array)
 static void ui_init(void)
 {
     uint32_t err_code;
-    nrf_gpio_cfg_input(Key1, NRF_GPIO_PIN_PULLUP);
 
     // Set up logger
     err_code = NRF_LOG_INIT(NULL);
@@ -603,8 +605,6 @@ static void ui_init(void)
 
     // NRF_LOG_INFO("Gazell ACK payload example. Device mode.");
     NRF_LOG_FLUSH();
-
-    // bsp_board_init(BSP_INIT_LEDS);
 }
 
 /*****************************************************************************/
@@ -721,18 +721,11 @@ void Wireless_Mode()
 
     result_value = nrf_gzll_add_packet_to_tx_fifo(PIPE_NUMBER, m_data_payload, TX_PAYLOAD_LENGTH);
 
-    APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
-    // APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
-    memset(m_rx_buff, 0, 2);
-
     nrfx_timer_config_t timer_cfg = NRFX_TIMER_DEFAULT_CONFIG;
     timer_cfg.frequency = 9;
     timer_cfg.interrupt_priority = 7;
     nrfx_timer_init(&TIMER_SLEEP, &timer_cfg, Sleep_Counter);
-
-    // time_ticks = nrfx_timer_ms_to_ticks(&TIMER_KBD, time_ms);
     uint32_t time_ticks = nrfx_timer_ms_to_ticks(&TIMER_SLEEP, 1000);
-
     // Set compare, when counter value = time_ticks -> interrupt
     nrfx_timer_extended_compare(&TIMER_SLEEP, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
 
@@ -754,7 +747,6 @@ void BLE_Mode()
 {
     Check_Mode();
 }
-
 int main(void)
 {
     Pin_Cfg();
@@ -767,14 +759,19 @@ int main(void)
     m_tx_buff[0] = 0x00;
     m_tx_buff[1] = 0x00;
 
-    nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG;
+    nrfx_spi_config_t spi_config = NRFX_SPI_DEFAULT_CONFIG;
     spi_config.ss_pin = SER_APP_SPIM0_SS_PIN;
     spi_config.miso_pin = SER_APP_SPIM0_MISO_PIN;
     spi_config.mosi_pin = NRFX_SPIM_PIN_NOT_USED; /* Only Read */
     spi_config.sck_pin = SER_APP_SPIM0_SCK_PIN;
     spi_config.frequency = NRF_SPIM_FREQ_4M;
+    nrf_delay_ms(100);
 
-    APP_ERROR_CHECK(nrf_drv_spi_init(&scan_spi, &spi_config, NULL, NULL));
+    APP_ERROR_CHECK(nrfx_spi_init(&scan_spi, &spi_config, NULL, NULL));
+
+    APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
+    memset(m_rx_buff,0,2);
+
     for (;;)
     {
         if (nrf_gpio_pin_read(WIRELESS_MODE_PIN) == 0)
