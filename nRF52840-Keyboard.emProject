@@ -380,10 +380,10 @@
         <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
       <file file_name="../../components/libraries/fstorage/nrf_fstorage.c">
-        <configuration Name="Debug" build_exclude_from_build="Yes" />
+        <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
       <file file_name="../../components/libraries/fstorage/nrf_fstorage_nvmc.c">
-        <configuration Name="Debug" build_exclude_from_build="Yes" />
+        <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
       <file file_name="../../components/libraries/gfx/nrf_gfx.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />

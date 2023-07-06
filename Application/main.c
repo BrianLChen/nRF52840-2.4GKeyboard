@@ -59,7 +59,7 @@
 #include "bsp.h"
 #include "custom_usbd_hid_kbd.h"
 #include "nrf_drv_spi.h"
-#include "nrfx_spi.h"
+#include "nrfx_spim.h"
 #include "nrfx_timer.h"
 
 #include "nrf_log.h"
@@ -102,13 +102,13 @@ uint8_t CONSUMER_Rep_Buff_Prev[consumer_rep_byte] = {0};
 const uint8_t ZERO_buff[16] = {0};
 
 // SPI
-static const nrfx_spi_t scan_spi = NRFX_SPI_INSTANCE(0);
+static const nrfx_spim_t scan_spi = NRFX_SPIM_INSTANCE(0);
 
 static uint8_t m_tx_buff[2];
 static uint8_t m_rx_buff[2];
 static uint8_t scan_buff = {0};
 
-static const nrfx_spi_xfer_desc_t scan_spi_desc = {m_tx_buff, 2, m_rx_buff, 2};
+static const nrfx_spim_xfer_desc_t scan_spi_desc = {m_tx_buff, 2, m_rx_buff, 2};
 
 uint32_t Sleep_Time_Out_Counter = 0; // counter for sleep time
 uint8_t Mode;                        // Mode indicator
@@ -258,7 +258,7 @@ static void Enter_Sleep_Mode()
     nrf_gpio_cfg_default(LED3);
 
     nrfx_timer_disable(&TIMER_SLEEP);
-    nrfx_spi_uninit(&scan_spi);
+    nrfx_spim_uninit(&scan_spi);
     nrf_gzll_disable();
 
     nrf_pwr_mgmt_shutdown(NRF_PWR_MGMT_SHUTDOWN_GOTO_SYSOFF);
@@ -366,7 +366,7 @@ static inline uint32_t debouncefilter(uint16_t delay)
 {
     uint8_t scan_output;
     nrf_delay_us(delay);
-    APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
+    APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
     scan_output = scan_buff ^ m_rx_buff[0];
     scan_buff = scan_output;
 }
@@ -400,7 +400,7 @@ static void scan_key(nrf_timer_event_t event_type, void *p_context)
 {
     nrf_gpio_pin_set(PL_Pin);
 
-    APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
+    APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
     scan_buff = m_rx_buff[0];
 
     uint32_t a = debouncefilter(100);
@@ -482,8 +482,6 @@ void Wire_Mode()
     time_ticks = nrfx_timer_us_to_ticks(&TIMER_KBD, 900);
     // Set compare, when counter value = time_ticks -> interrupt
     nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
-    //APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
-    //// APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
     //memset(m_rx_buff, 0, 2);
 
     if (USBD_POWER_DETECTION)
@@ -557,7 +555,7 @@ void input_get(uint8_t *array)
     memset(array, 0, 17);
     nrf_gpio_pin_set(PL_Pin);
 
-    APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
+    APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
     scan_buff = m_rx_buff[0];
 
     uint32_t a = debouncefilter(100);
@@ -763,17 +761,17 @@ int main(void)
     m_tx_buff[0] = 0x00;
     m_tx_buff[1] = 0x00;
 
-    nrfx_spi_config_t spi_config = NRFX_SPI_DEFAULT_CONFIG;
+    nrfx_spim_config_t spi_config = NRFX_SPI_DEFAULT_CONFIG;
     spi_config.ss_pin = SER_APP_SPIM0_SS_PIN;
     spi_config.miso_pin = SER_APP_SPIM0_MISO_PIN;
-    spi_config.mosi_pin = NRFX_SPIM_PIN_NOT_USED; /* Only Read */
+    spi_config.mosi_pin = NRFX_SPI_PIN_NOT_USED; /* Only Read */
     spi_config.sck_pin = SER_APP_SPIM0_SCK_PIN;
     spi_config.frequency = NRF_SPIM_FREQ_4M;
     nrf_delay_ms(100);
 
-    APP_ERROR_CHECK(nrfx_spi_init(&scan_spi, &spi_config, NULL, NULL));
+    APP_ERROR_CHECK(nrfx_spim_init(&scan_spi, &spi_config, NULL, NULL));
 
-    APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
+    APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
     memset(m_rx_buff,0,2);
 
     for (;;)

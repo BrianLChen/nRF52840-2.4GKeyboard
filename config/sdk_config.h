@@ -5029,7 +5029,7 @@
  
 
 #ifndef SPI0_USE_EASY_DMA
-#define SPI0_USE_EASY_DMA 0
+#define SPI0_USE_EASY_DMA 1
 #endif
 
 // </e>
@@ -5043,7 +5043,7 @@
  
 
 #ifndef SPI1_USE_EASY_DMA
-#define SPI1_USE_EASY_DMA 0
+#define SPI1_USE_EASY_DMA 1
 #endif
 
 // </e>
@@ -5057,7 +5057,7 @@
  
 
 #ifndef SPI2_USE_EASY_DMA
-#define SPI2_USE_EASY_DMA 0
+#define SPI2_USE_EASY_DMA 1
 #endif
 
 // </e>
