@@ -113,8 +113,10 @@ static const nrfx_spi_xfer_desc_t scan_spi_desc = {m_tx_buff, 2, m_rx_buff, 2};
 uint32_t Sleep_Time_Out_Counter = 0; // counter for sleep time
 uint8_t Mode;                        // Mode indicator
 
+//uint8_t KEY_TABLE[8] = {KEYBOARD_A, KEYBOARD_B, KEYBOARD_C, KEYBOARD_D,
+//    KEYBOARD_E, MODIFIER_LEFT_UI, CONSUMER_VOLUME_DECREASE, CONSUMER_MUTE};
 uint8_t KEY_TABLE[8] = {KEYBOARD_A, KEYBOARD_B, KEYBOARD_C, KEYBOARD_D,
-    KEYBOARD_E, MODIFIER_LEFT_UI, CONSUMER_VOLUME_DECREASE, CONSUMER_MUTE};
+    KEYBOARD_E, KEYBOARD_F, KEYBOARD_G, KEYBOARD_H};
 
 /**
  * @brief Enable USB power detection
@@ -375,8 +377,8 @@ inline void remap()
     uint8_t remap_buff = ~scan_buff;
     for (uint8_t i = 0; i < 8; i++)
     {
-        uint8_t temp = 0x01 << i;
-        uint8_t temp2 = temp & remap_buff;
+        //uint8_t temp = 0x01 << i;
+        //uint8_t temp2 = temp & remap_buff;
         if (remap_buff & (0x01 << i))
         {
             bitIndex = KEY_TABLE[i] % 8;
@@ -449,6 +451,8 @@ void TXD_blink()
 // Function to init Wire Mode Keyboard
 void Wire_Mode()
 {
+        nrf_gpio_cfg_output(MOS_CTRL_PIN);
+    nrf_gpio_pin_set(MOS_CTRL_PIN);
     // Pin_Cfg();
     ret_code_t ret;
     static const app_usbd_config_t usbd_config = {
@@ -472,15 +476,15 @@ void Wire_Mode()
     uint32_t time_ticks;
     uint32_t err_code = NRF_SUCCESS;
     nrfx_timer_config_t timer_cfg = NRFX_TIMER_DEFAULT_CONFIG;
-    timer_cfg.interrupt_priority = 7;
+    timer_cfg.interrupt_priority = 6;
     err_code = nrfx_timer_init(&TIMER_KBD, &timer_cfg, scan_key);
     APP_ERROR_CHECK(err_code);
     time_ticks = nrfx_timer_us_to_ticks(&TIMER_KBD, 900);
     // Set compare, when counter value = time_ticks -> interrupt
     nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
-    APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
-    // APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
-    memset(m_rx_buff, 0, 2);
+    //APP_ERROR_CHECK(nrfx_spi_xfer(&scan_spi, &scan_spi_desc, NULL));
+    //// APP_ERROR_CHECK(nrf_drv_spi_transfer(&scan_spi, m_tx_buff, 2, m_rx_buff, 2));
+    //memset(m_rx_buff, 0, 2);
 
     if (USBD_POWER_DETECTION)
     {

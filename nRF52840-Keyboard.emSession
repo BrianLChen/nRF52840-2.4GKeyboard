@@ -2,11 +2,10 @@
 <session>
  <Bookmarks/>
  <Breakpoints groups="Breakpoints" active_group="Breakpoints">
-  <BreakpointListItem trigger="" line="226" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="Application/main.c" useHWbreakpoint="false"/>
-  <BreakpointListItem trigger="" line="227" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="Application/main.c" useHWbreakpoint="false"/>
-  <BreakpointListItem trigger="" line="236" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="Application/main.c" useHWbreakpoint="false"/>
-  <BreakpointListItem trigger="" line="256" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="Application/main.c" useHWbreakpoint="false"/>
-  <BreakpointListItem trigger="" line="769" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="Application/main.c" useHWbreakpoint="false"/>
+  <BreakpointListItem trigger="" line="401" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="Application/main.c" useHWbreakpoint="false"/>
+  <BreakpointListItem trigger="" line="404" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="Application/main.c" useHWbreakpoint="false"/>
+  <BreakpointListItem trigger="" line="411" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="Application/main.c" useHWbreakpoint="false"/>
+  <BreakpointListItem trigger="" line="431" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="Application/main.c" useHWbreakpoint="false"/>
   <BreakpointListItem trigger="" line="390" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="../../components/libraries/pwr_mgmt/nrf_pwr_mgmt.c" useHWbreakpoint="false"/>
  </Breakpoints>
  <ExecutionProfileWindow/>
@@ -66,7 +65,7 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="23" y="255" useTextEdit="1" path="Application/main.c" left="0" selected="1" top="223" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="449" useTextEdit="1" path="Application/main.c" left="0" selected="1" top="432" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="574" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../modules/nrfx/hal/nrf_gpio.h" left="0" top="560" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="99" useTextEdit="1" path="../../components/libraries/util/app_error_weak.c" left="0" top="54" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="154" useTextEdit="1" path="../../modules/nrfx/drivers/src/nrfx_timer.c" left="0" top="135" codecName="UTF-8"/>
