@@ -9,8 +9,8 @@
 #define LED2 NRF_GPIO_PIN_MAP(1,9)
 #define LED3 NRF_GPIO_PIN_MAP(0,16)
 
-#define Key1 NRF_GPIO_PIN_MAP(0,11)
-//#define Key1 NRF_GPIO_PIN_MAP(0,27)
+//#define Key1 NRF_GPIO_PIN_MAP(0,11)
+//#define Key1 NRF_GPIO_PIN_MAP(0,22)
 
 void LED_On(uint32_t led_number);
 void LED_Off(uint32_t led_number);

@@ -37,8 +37,8 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef CUSTOM_USBD_HID_KBD_H__
-#define CUSTOM_USBD_HID_KBD_H__
+#ifndef KEYBOARD_H__
+#define KEYBOARD_H__
 
 #ifdef __cplusplus
 extern "C"
@@ -75,136 +75,162 @@ extern "C"
      */
     typedef enum
     {
-        CUSTOM_USBD_HID_KBD_RESERVED = 0,
-        CUSTOM_USBD_HID_KBD_ERROR_ROLL_OVER = 1,
-        CUSTOM_USBD_HID_KBD_POST_FAIL = 2,
-        CUSTOM_USBD_HID_KBD_ERROR_UNDEFINED = 3,
-        CUSTOM_USBD_HID_KBD_A = 4,                /**<KBD_A               code*/
-        CUSTOM_USBD_HID_KBD_B = 5,                /**<KBD_B               code*/
-        CUSTOM_USBD_HID_KBD_C = 6,                /**<KBD_C               code*/
-        CUSTOM_USBD_HID_KBD_D = 7,                /**<KBD_D               code*/
-        CUSTOM_USBD_HID_KBD_E = 8,                /**<KBD_E               code*/
-        CUSTOM_USBD_HID_KBD_F = 9,                /**<KBD_F               code*/
-        CUSTOM_USBD_HID_KBD_G = 10,               /**<KBD_G               code*/
-        CUSTOM_USBD_HID_KBD_H = 11,               /**<KBD_H               code*/
-        CUSTOM_USBD_HID_KBD_I = 12,               /**<KBD_I               code*/
-        CUSTOM_USBD_HID_KBD_J = 13,               /**<KBD_J               code*/
-        CUSTOM_USBD_HID_KBD_K = 14,               /**<KBD_K               code*/
-        CUSTOM_USBD_HID_KBD_L = 15,               /**<KBD_L               code*/
-        CUSTOM_USBD_HID_KBD_M = 16,               /**<KBD_M               code*/
-        CUSTOM_USBD_HID_KBD_N = 17,               /**<KBD_N               code*/
-        CUSTOM_USBD_HID_KBD_O = 18,               /**<KBD_O               code*/
-        CUSTOM_USBD_HID_KBD_P = 19,               /**<KBD_P               code*/
-        CUSTOM_USBD_HID_KBD_Q = 20,               /**<KBD_Q               code*/
-        CUSTOM_USBD_HID_KBD_R = 21,               /**<KBD_R               code*/
-        CUSTOM_USBD_HID_KBD_S = 22,               /**<KBD_S               code*/
-        CUSTOM_USBD_HID_KBD_T = 23,               /**<KBD_T               code*/
-        CUSTOM_USBD_HID_KBD_U = 24,               /**<KBD_U               code*/
-        CUSTOM_USBD_HID_KBD_V = 25,               /**<KBD_V               code*/
-        CUSTOM_USBD_HID_KBD_W = 26,               /**<KBD_W               code*/
-        CUSTOM_USBD_HID_KBD_X = 27,               /**<KBD_X               code*/
-        CUSTOM_USBD_HID_KBD_Y = 28,               /**<KBD_Y               code*/
-        CUSTOM_USBD_HID_KBD_Z = 29,               /**<KBD_Z               code*/
-        CUSTOM_USBD_HID_KBD_1 = 30,               /**<KBD_1               code*/
-        CUSTOM_USBD_HID_KBD_2 = 31,               /**<KBD_2               code*/
-        CUSTOM_USBD_HID_KBD_3 = 32,               /**<KBD_3               code*/
-        CUSTOM_USBD_HID_KBD_4 = 33,               /**<KBD_4               code*/
-        CUSTOM_USBD_HID_KBD_5 = 34,               /**<KBD_5               code*/
-        CUSTOM_USBD_HID_KBD_6 = 35,               /**<KBD_6               code*/
-        CUSTOM_USBD_HID_KBD_7 = 36,               /**<KBD_7               code*/
-        CUSTOM_USBD_HID_KBD_8 = 37,               /**<KBD_8               code*/
-        CUSTOM_USBD_HID_KBD_9 = 38,               /**<KBD_9               code*/
-        CUSTOM_USBD_HID_KBD_0 = 39,               /**<KBD_0               code*/
-        CUSTOM_USBD_HID_KBD_ENTER = 40,           /**<KBD_ENTER           code*/
-        CUSTOM_USBD_HID_KBD_ESCAPE = 41,          /**<KBD_ESCAPE          code*/
-        CUSTOM_USBD_HID_KBD_BACKSPACE = 42,       /**<KBD_BACKSPACE       code*/
-        CUSTOM_USBD_HID_KBD_TAB = 43,             /**<KBD_TAB             code*/
-        CUSTOM_USBD_HID_KBD_SPACEBAR = 44,        /**<KBD_SPACEBAR        code*/
-        CUSTOM_USBD_HID_KBD_UNDERSCORE = 45,      /**<KBD_UNDERSCORE      code*/
-        CUSTOM_USBD_HID_KBD_PLUS = 46,            /**<KBD_PLUS            code*/
-        CUSTOM_USBD_HID_KBD_OPEN_BRACKET = 47,    /**<KBD_OPEN_BRACKET    code*/
-        CUSTOM_USBD_HID_KBD_CLOSE_BRACKET = 48,   /**<KBD_CLOSE_BRACKET   code*/
-        CUSTOM_USBD_HID_KBD_BACKSLASH = 49,       /**<KBD_BACKSLASH       code*/
-        CUSTOM_USBD_HID_KBD_NONE_US = 50,         /**<KBD_ASH             code*/
-        CUSTOM_USBD_HID_KBD_SEMI_COLON = 51,      /**<KBD_COLON           code*/
-        CUSTOM_USBD_HID_KBD_QUOTE = 52,           /**<KBD_QUOTE           code*/
-        CUSTOM_USBD_HID_KBD_GRAVE_ACCENT = 53,    /**<KBD_TILDE           code*/
-        CUSTOM_USBD_HID_KBD_COMMA = 54,           /**<KBD_COMMA           code*/
-        CUSTOM_USBD_HID_KBD_PERIOD = 55,          /**<KBD_DOT             code*/
-        CUSTOM_USBD_HID_KBD_SLASH = 56,           /**<KBD_SLASH           code*/
-        CUSTOM_USBD_HID_KBD_CAPS_LOCK = 57,       /**<KBD_CAPS_LOCK       code*/
-        CUSTOM_USBD_HID_KBD_F1 = 58,              /**<KBD_F1              code*/
-        CUSTOM_USBD_HID_KBD_F2 = 59,              /**<KBD_F2              code*/
-        CUSTOM_USBD_HID_KBD_F3 = 60,              /**<KBD_F3              code*/
-        CUSTOM_USBD_HID_KBD_F4 = 61,              /**<KBD_F4              code*/
-        CUSTOM_USBD_HID_KBD_F5 = 62,              /**<KBD_F5              code*/
-        CUSTOM_USBD_HID_KBD_F6 = 63,              /**<KBD_F6              code*/
-        CUSTOM_USBD_HID_KBD_F7 = 64,              /**<KBD_F7              code*/
-        CUSTOM_USBD_HID_KBD_F8 = 65,              /**<KBD_F8              code*/
-        CUSTOM_USBD_HID_KBD_F9 = 66,              /**<KBD_F9              code*/
-        CUSTOM_USBD_HID_KBD_F10 = 67,             /**<KBD_F10             code*/
-        CUSTOM_USBD_HID_KBD_F11 = 68,             /**<KBD_F11             code*/
-        CUSTOM_USBD_HID_KBD_F12 = 69,             /**<KBD_F12             code*/
-        CUSTOM_USBD_HID_KBD_PRINTSCREEN = 70,     /**<KBD_PRINTSCREEN     code*/
-        CUSTOM_USBD_HID_KBD_SCROLL_LOCK = 71,     /**<KBD_SCROLL_LOCK     code*/
-        CUSTOM_USBD_HID_KBD_PAUSE = 72,           /**<KBD_PAUSE           code*/
-        CUSTOM_USBD_HID_KBD_INSERT = 73,          /**<KBD_INSERT          code*/
-        CUSTOM_USBD_HID_KBD_HOME = 74,            /**<KBD_HOME            code*/
-        CUSTOM_USBD_HID_KBD_PAGEUP = 75,          /**<KBD_PAGEUP          code*/
-        CUSTOM_USBD_HID_KBD_DELETE = 76,          /**<KBD_DELETE          code*/
-        CUSTOM_USBD_HID_KBD_END = 77,             /**<KBD_END             code*/
-        CUSTOM_USBD_HID_KBD_PAGEDOWN = 78,        /**<KBD_PAGEDOWN        code*/
-        CUSTOM_USBD_HID_KBD_RIGHT = 79,           /**<KBD_RIGHT           code*/
-        CUSTOM_USBD_HID_KBD_LEFT = 80,            /**<KBD_LEFT            code*/
-        CUSTOM_USBD_HID_KBD_DOWN = 81,            /**<KBD_DOWN            code*/
-        CUSTOM_USBD_HID_KBD_UP = 82,              /**<KBD_UP              code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_NUM_LOCK = 83, /**<KBD_KEYPAD_NUM_LOCK code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_DIVIDE = 84,   /**<KBD_KEYPAD_DIVIDE   code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_MULTIPLY = 85, /**<KBD_KEYPAD_MULTIPLY code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_MINUS = 86,    /**<KBD_KEYPAD_MINUS    code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_PLUS = 87,     /**<KBD_KEYPAD_PLUS     code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_ENTER = 88,    /**<KBD_KEYPAD_ENTER    code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_1 = 89,        /**<KBD_KEYPAD_1        code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_2 = 90,        /**<KBD_KEYPAD_2        code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_3 = 91,        /**<KBD_KEYPAD_3        code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_4 = 92,        /**<KBD_KEYPAD_4        code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_5 = 93,        /**<KBD_KEYPAD_5        code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_6 = 94,        /**<KBD_KEYPAD_6        code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_7 = 95,        /**<KBD_KEYPAD_7        code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_8 = 96,        /**<KBD_KEYPAD_8        code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_9 = 97,        /**<KBD_KEYPAD_9        code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_0 = 98,        /**<KBD_KEYPAD_0        code*/
-        CUSTOM_USBD_HID_KBD_KEYPAD_PERIOD = 99,
-        CUSTOM_USBD_HID_KBD_NONUS_BACKSLASH = 100,
-        CUSTOM_USBD_HID_KBD_APPLICATION = 101,
-        CUSTOM_USBD_HID_KBD_POWER = 102,
-        CUSTOM_USBD_HID_KBD_PAD_EQUAL = 103,
-        CUSTOM_USBD_HID_KBD_F13 = 104,
-        CUSTOM_USBD_HID_KBD_F14 = 105,
-        CUSTOM_USBD_HID_KBD_F15 = 106,
-        CUSTOM_USBD_HID_KBD_F16 = 107,
-        CUSTOM_USBD_HID_KBD_F17 = 108,
-        CUSTOM_USBD_HID_KBD_F18 = 109,
-        CUSTOM_USBD_HID_KBD_F19 = 110,
-        CUSTOM_USBD_HID_KBD_F20 = 111,
-        CUSTOM_USBD_HID_KBD_F21 = 112,
-        CUSTOM_USBD_HID_KBD_F22 = 113,
-        CUSTOM_USBD_HID_KBD_F23 = 114,
-        CUSTOM_USBD_HID_KBD_F24 = 115,
-        CUSTOM_USBD_HID_KBD_EXECUTE = 116,
-        CUSTOM_USBD_HID_KBD_HELP = 117,
-        CUSTOM_USBD_HID_KBD_MENU = 118,
-        CUSTOM_USBD_HID_KBD_SELECT = 119,
-        CUSTOM_USBD_HID_KBD_STOP = 120,
-        CUSTOM_USBD_HID_KBD_AGAIN = 121,
-        CUSTOM_USBD_HID_KBD_UNDO = 122,
-        CUSTOM_USBD_HID_KBD_CUT = 123,
-        CUSTOM_USBD_HID_KBD_COPY = 124,
-        CUSTOM_USBD_HID_KBD_PASTE = 125,
-        CUSTOM_USBD_HID_KBD_FIND = 126,
-        CUSTOM_USBD_HID_KBD_MUTE = 127,
-        CUSTOM_USBD_HID_KBD_VOLUME_UP = 128,
-        CUSTOM_USBD_HID_KBD_VOLUME_DOWN = 129,
+        // Modifier Button keycode + offset(8)
+        MODIFIER_LEFT_CTRL = 0 + 8,   /**< MODIFIER_LEFT_CTRL   bit*/
+        MODIFIER_LEFT_SHIFT = 1 + 8,  /**< MODIFIER_LEFT_SHIFT  bit*/
+        MODIFIER_LEFT_ALT = 2 + 8,    /**< MODIFIER_LEFT_ALT    bit*/
+        MODIFIER_LEFT_UI = 3 + 8,     /**< MODIFIER_LEFT_UI     bit*/
+        MODIFIER_RIGHT_CTRL = 4 + 8,  /**< MODIFIER_RIGHT_CTRL  bit*/
+        MODIFIER_RIGHT_SHIFT = 5 + 8, /**< MODIFIER_RIGHT_SHIFT bit*/
+        MODIFIER_RIGHT_ALT = 6 + 8,   /**< MODIFIER_RIGHT_ALT   bit*/
+        MODIFIER_RIGHT_UI = 7 + 8,    /**< MODIFIER_RIGHT_UI    bit*/
+        // Keyboard Button keycode + offset(16)
+        KEYBOARD_RESERVED = 0 + 16,
+        KEYBOARD_ERROR_ROLL_OVER = 1 + 16,
+        KEYBOARD_POST_FAIL = 2 + 16,
+        KEYBOARD_ERROR_UNDEFINED = 3 + 16,
+        KEYBOARD_A = 4 + 16,                /**<KBD_A               code*/
+        KEYBOARD_B = 5 + 16,                /**<KBD_B               code*/
+        KEYBOARD_C = 6 + 16,                /**<KBD_C               code*/
+        KEYBOARD_D = 7 + 16,                /**<KBD_D               code*/
+        KEYBOARD_E = 8 + 16,                /**<KBD_E               code*/
+        KEYBOARD_F = 9 + 16,                /**<KBD_F               code*/
+        KEYBOARD_G = 10 + 16,               /**<KBD_G               code*/
+        KEYBOARD_H = 11 + 16,               /**<KBD_H               code*/
+        KEYBOARD_I = 12 + 16,               /**<KBD_I               code*/
+        KEYBOARD_J = 13 + 16,               /**<KBD_J               code*/
+        KEYBOARD_K = 14 + 16,               /**<KBD_K               code*/
+        KEYBOARD_L = 15 + 16,               /**<KBD_L               code*/
+        KEYBOARD_M = 16 + 16,               /**<KBD_M               code*/
+        KEYBOARD_N = 17 + 16,               /**<KBD_N               code*/
+        KEYBOARD_O = 18 + 16,               /**<KBD_O               code*/
+        KEYBOARD_P = 19 + 16,               /**<KBD_P               code*/
+        KEYBOARD_Q = 20 + 16,               /**<KBD_Q               code*/
+        KEYBOARD_R = 21 + 16,               /**<KBD_R               code*/
+        KEYBOARD_S = 22 + 16,               /**<KBD_S               code*/
+        KEYBOARD_T = 23 + 16,               /**<KBD_T               code*/
+        KEYBOARD_U = 24 + 16,               /**<KBD_U               code*/
+        KEYBOARD_V = 25 + 16,               /**<KBD_V               code*/
+        KEYBOARD_W = 26 + 16,               /**<KBD_W               code*/
+        KEYBOARD_X = 27 + 16,               /**<KBD_X               code*/
+        KEYBOARD_Y = 28 + 16,               /**<KBD_Y               code*/
+        KEYBOARD_Z = 29 + 16,               /**<KBD_Z               code*/
+        KEYBOARD_1 = 30 + 16,               /**<KBD_1               code*/
+        KEYBOARD_2 = 31 + 16,               /**<KBD_2               code*/
+        KEYBOARD_3 = 32 + 16,               /**<KBD_3               code*/
+        KEYBOARD_4 = 33 + 16,               /**<KBD_4               code*/
+        KEYBOARD_5 = 34 + 16,               /**<KBD_5               code*/
+        KEYBOARD_6 = 35 + 16,               /**<KBD_6               code*/
+        KEYBOARD_7 = 36 + 16,               /**<KBD_7               code*/
+        KEYBOARD_8 = 37 + 16,               /**<KBD_8               code*/
+        KEYBOARD_9 = 38 + 16,               /**<KBD_9               code*/
+        KEYBOARD_0 = 39 + 16,               /**<KBD_0               code*/
+        KEYBOARD_ENTER = 40 + 16,           /**<KBD_ENTER           code*/
+        KEYBOARD_ESCAPE = 41 + 16,          /**<KBD_ESCAPE          code*/
+        KEYBOARD_BACKSPACE = 42 + 16,       /**<KBD_BACKSPACE       code*/
+        KEYBOARD_TAB = 43 + 16,             /**<KBD_TAB             code*/
+        KEYBOARD_SPACEBAR = 44 + 16,        /**<KBD_SPACEBAR        code*/
+        KEYBOARD_UNDERSCORE = 45 + 16,      /**<KBD_UNDERSCORE      code*/
+        KEYBOARD_PLUS = 46 + 16,            /**<KBD_PLUS            code*/
+        KEYBOARD_OPEN_BRACKET = 47 + 16,    /**<KBD_OPEN_BRACKET    code*/
+        KEYBOARD_CLOSE_BRACKET = 48 + 16,   /**<KBD_CLOSE_BRACKET   code*/
+        KEYBOARD_BACKSLASH = 49 + 16,       /**<KBD_BACKSLASH       code*/
+        KEYBOARD_NONE_US = 50 + 16,         /**<KBD_ASH             code*/
+        KEYBOARD_SEMI_COLON = 51 + 16,      /**<KBD_COLON           code*/
+        KEYBOARD_QUOTE = 52 + 16,           /**<KBD_QUOTE           code*/
+        KEYBOARD_GRAVE_ACCENT = 53 + 16,    /**<KBD_TILDE           code*/
+        KEYBOARD_COMMA = 54 + 16,           /**<KBD_COMMA           code*/
+        KEYBOARD_PERIOD = 55 + 16,          /**<KBD_DOT             code*/
+        KEYBOARD_SLASH = 56 + 16,           /**<KBD_SLASH           code*/
+        KEYBOARD_CAPS_LOCK = 57 + 16,       /**<KBD_CAPS_LOCK       code*/
+        KEYBOARD_F1 = 58 + 16,              /**<KBD_F1              code*/
+        KEYBOARD_F2 = 59 + 16,              /**<KBD_F2              code*/
+        KEYBOARD_F3 = 60 + 16,              /**<KBD_F3              code*/
+        KEYBOARD_F4 = 61 + 16,              /**<KBD_F4              code*/
+        KEYBOARD_F5 = 62 + 16,              /**<KBD_F5              code*/
+        KEYBOARD_F6 = 63 + 16,              /**<KBD_F6              code*/
+        KEYBOARD_F7 = 64 + 16,              /**<KBD_F7              code*/
+        KEYBOARD_F8 = 65 + 16,              /**<KBD_F8              code*/
+        KEYBOARD_F9 = 66 + 16,              /**<KBD_F9              code*/
+        KEYBOARD_F10 = 67 + 16,             /**<KBD_F10             code*/
+        KEYBOARD_F11 = 68 + 16,             /**<KBD_F11             code*/
+        KEYBOARD_F12 = 69 + 16,             /**<KBD_F12             code*/
+        KEYBOARD_PRINTSCREEN = 70 + 16,     /**<KBD_PRINTSCREEN     code*/
+        KEYBOARD_SCROLL_LOCK = 71 + 16,     /**<KBD_SCROLL_LOCK     code*/
+        KEYBOARD_PAUSE = 72 + 16,           /**<KBD_PAUSE           code*/
+        KEYBOARD_INSERT = 73 + 16,          /**<KBD_INSERT          code*/
+        KEYBOARD_HOME = 74 + 16,            /**<KBD_HOME            code*/
+        KEYBOARD_PAGEUP = 75 + 16,          /**<KBD_PAGEUP          code*/
+        KEYBOARD_DELETE = 76 + 16,          /**<KBD_DELETE          code*/
+        KEYBOARD_END = 77 + 16,             /**<KBD_END             code*/
+        KEYBOARD_PAGEDOWN = 78 + 16,        /**<KBD_PAGEDOWN        code*/
+        KEYBOARD_RIGHT = 79 + 16,           /**<KBD_RIGHT           code*/
+        KEYBOARD_LEFT = 80 + 16,            /**<KBD_LEFT            code*/
+        KEYBOARD_DOWN = 81 + 16,            /**<KBD_DOWN            code*/
+        KEYBOARD_UP = 82 + 16,              /**<KBD_UP              code*/
+        KEYBOARD_KEYPAD_NUM_LOCK = 83 + 16, /**<KBD_KEYPAD_NUM_LOCK code*/
+        KEYBOARD_KEYPAD_DIVIDE = 84 + 16,   /**<KBD_KEYPAD_DIVIDE   code*/
+        KEYBOARD_KEYPAD_MULTIPLY = 85 + 16, /**<KBD_KEYPAD_MULTIPLY code*/
+        KEYBOARD_KEYPAD_MINUS = 86 + 16,    /**<KBD_KEYPAD_MINUS    code*/
+        KEYBOARD_KEYPAD_PLUS = 87 + 16,     /**<KBD_KEYPAD_PLUS     code*/
+        KEYBOARD_KEYPAD_ENTER = 88 + 16,    /**<KBD_KEYPAD_ENTER    code*/
+        KEYBOARD_KEYPAD_1 = 89 + 16,        /**<KBD_KEYPAD_1        code*/
+        KEYBOARD_KEYPAD_2 = 90 + 16,        /**<KBD_KEYPAD_2        code*/
+        KEYBOARD_KEYPAD_3 = 91 + 16,        /**<KBD_KEYPAD_3        code*/
+        KEYBOARD_KEYPAD_4 = 92 + 16,        /**<KBD_KEYPAD_4        code*/
+        KEYBOARD_KEYPAD_5 = 93 + 16,        /**<KBD_KEYPAD_5        code*/
+        KEYBOARD_KEYPAD_6 = 94 + 16,        /**<KBD_KEYPAD_6        code*/
+        KEYBOARD_KEYPAD_7 = 95 + 16,        /**<KBD_KEYPAD_7        code*/
+        KEYBOARD_KEYPAD_8 = 96 + 16,        /**<KBD_KEYPAD_8        code*/
+        KEYBOARD_KEYPAD_9 = 97 + 16,        /**<KBD_KEYPAD_9        code*/
+        KEYBOARD_KEYPAD_0 = 98 + 16,        /**<KBD_KEYPAD_0        code*/
+        KEYBOARD_KEYPAD_PERIOD = 99 + 16,
+        KEYBOARD_NONUS_BACKSLASH = 100 + 16,
+        KEYBOARD_APPLICATION = 101 + 16,
+        KEYBOARD_POWER = 102 + 16,
+        KEYBOARD_PAD_EQUAL = 103 + 16,
+        KEYBOARD_F13 = 104 + 16,
+        KEYBOARD_F14 = 105 + 16,
+        KEYBOARD_F15 = 106 + 16,
+        KEYBOARD_F16 = 107 + 16,
+        KEYBOARD_F17 = 108 + 16,
+        KEYBOARD_F18 = 109 + 16,
+        KEYBOARD_F19 = 110 + 16,
+        KEYBOARD_F20 = 111 + 16,
+        KEYBOARD_F21 = 112 + 16,
+        KEYBOARD_F22 = 113 + 16,
+        KEYBOARD_F23 = 114 + 16,
+        KEYBOARD_F24 = 115 + 16,
+        KEYBOARD_EXECUTE = 116 + 16,
+        KEYBOARD_HELP = 117 + 16,
+        KEYBOARD_MENU = 118 + 16,
+        KEYBOARD_SELECT = 119 + 16,
+        /* not support */
+        //KEYBOARD_STOP = 120 + 16,
+        //KEYBOARD_AGAIN = 121 + 16,
+        //KEYBOARD_UNDO = 122 + 16,
+        //KEYBOARD_CUT = 123 + 16,
+        //KEYBOARD_COPY = 124 + 16,
+        //KEYBOARD_PASTE = 125 + 16,
+        //KEYBOARD_FIND = 126 + 16,
+        //KEYBOARD_MUTE = 127 + 16,
+        //KEYBOARD_VOLUME_UP = 128 + 16,
+        //KEYBOARD_VOLUME_DOWN = 129 + 16,
+        
+        // CONSUMER_PAGE_CODE
+        CONSUMER_VOLUME_INCREASE = 136,
+        CONSUMER_VOLUME_DECREASE = 137,
+        CONSUMER_MUTE = 138,
+        CONSUMER_PLAY_PAUSE = 139,
+        CONSUMER_STOP = 140,
+        CONSUMER_NEXT_TRACK = 141,
+        CONSUMER_PREVIOUS_TRACK = 142,
+        CONSUMER_AL_CALCULATOR = 143,
+
+        // Custom Function
+        Fn = 144,
+        Light_Down = 145,
+        Light_UP = 146,
     } custom_key_codes_t;
 
     /**
@@ -239,6 +265,7 @@ extern "C"
         APP_USBD_HID_KBD_LED_COMPOSE = 0x08,     /**< LED_COMPOSE     id*/
         APP_USBD_HID_KBD_LED_KANA = 0x10,        /**< LED_KANA        id*/
     } app_usbd_hid_kbd_led_t;
+
 
 #ifdef DOXYGEN
     /**
@@ -378,11 +405,14 @@ APP_USBD_CLASS_TYPEDEF(app_usbd_hid_kbd,
     /* Function to press a sigle key */
     ret_code_t custom_key_press(app_usbd_hid_kbd_t const *p_kbd, custom_key_codes_t _key, bool press);
     ret_code_t custom_media_press(app_usbd_hid_kbd_t const *p_kbd, uint8_t _key, bool press);
+    uint8_t custom_LED_state_get(app_usbd_hid_kbd_t const * p_kbd);
     ret_code_t buffer_clear(app_usbd_hid_kbd_t const *p_kbd, uint8_t report_id);
     ret_code_t send(app_usbd_hid_kbd_t const *p_kbd);
     
     /* Directly Send report Buffer */
     ret_code_t KBD_Send(app_usbd_hid_kbd_t const *p_kbd, uint8_t *rep_buff);
+    ret_code_t Dongle_send(app_usbd_hid_kbd_t const *p_kbd, uint8_t *key_code);
+
 
     /** @} */
 

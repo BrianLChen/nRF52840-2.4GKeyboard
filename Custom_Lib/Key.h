@@ -5,8 +5,9 @@
 #include <nrf.h>
 #include <nrf_gpio.h>
 
-void Key_Event(uint32_t Key_number);
-void Key_(uint32_t Key_number);
+#define Key1 NRF_GPIO_PIN_MAP(0,11)
+
+uint32_t Read_Pin_Value(uint32_t key_number);
 bool Is_Key_Pressed(uint32_t key_number);
 
 #endif

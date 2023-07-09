@@ -253,14 +253,14 @@ ret_code_t custom_media_press(app_usbd_hid_kbd_t const *p_kbd, uint8_t _key, boo
     app_usbd_hid_access_lock(&p_kbd_ctx->hid_ctx);
     if (press)
     {
-         p_kbd_ctx->rep.modifier = (0x01 << bitIndex) | p_kbd_ctx->rep.modifier;
+        p_kbd_ctx->rep.modifier = (0x01 << bitIndex) | p_kbd_ctx->rep.modifier;
         // p_kbd_ctx->rep.modifier = _key;
-        //p_kbd_ctx->rep.key_table[14] = 0x01;
-        //p_kbd_ctx->rep.key_table[3] = 0x01;
+        // p_kbd_ctx->rep.key_table[14] = 0x01;
+        // p_kbd_ctx->rep.key_table[3] = 0x01;
 
-        //p_kbd_ctx->rep.key_table[15] = 0x01;
-        //p_kbd_ctx->rep.key_table[16] = 0x01;
-        // p_kbd_ctx->rep.key_table[1] = 0x10;
+        // p_kbd_ctx->rep.key_table[15] = 0x01;
+        // p_kbd_ctx->rep.key_table[16] = 0x01;
+        //  p_kbd_ctx->rep.key_table[1] = 0x10;
 
         p_kbd_ctx->rep.report_id = 0x01;
     }
@@ -567,12 +567,12 @@ static bool hid_kbd_feed_descriptors(app_usbd_class_descriptor_ctx_t *p_ctx,
 
             static app_usbd_class_ep_conf_t const *p_cur_ep = NULL;
             p_cur_ep = app_usbd_class_iface_ep_get(p_cur_iface, j);
-            APP_USBD_CLASS_DESCRIPTOR_WRITE(app_usbd_class_ep_address_get(p_cur_ep));        // bEndpointAddress
-            APP_USBD_CLASS_DESCRIPTOR_WRITE(APP_USBD_DESCRIPTOR_EP_ATTR_TYPE_INTERRUPT);     // bmAttributes
-            APP_USBD_CLASS_DESCRIPTOR_WRITE(LSB_16(NRF_DRV_USBD_EPSIZE));                    // wMaxPacketSize LSB
-            APP_USBD_CLASS_DESCRIPTOR_WRITE(MSB_16(NRF_DRV_USBD_EPSIZE));                    // wMaxPacketSize MSB
-            APP_USBD_CLASS_DESCRIPTOR_WRITE(p_kbd->specific.inst.hid_inst.p_ep_interval[j]); // bInterval
-                                                                                             // APP_USBD_CLASS_DESCRIPTOR_WRITE(bInterval); // bInterval
+            APP_USBD_CLASS_DESCRIPTOR_WRITE(app_usbd_class_ep_address_get(p_cur_ep));    // bEndpointAddress
+            APP_USBD_CLASS_DESCRIPTOR_WRITE(APP_USBD_DESCRIPTOR_EP_ATTR_TYPE_INTERRUPT); // bmAttributes
+            APP_USBD_CLASS_DESCRIPTOR_WRITE(LSB_16(NRF_DRV_USBD_EPSIZE));                // wMaxPacketSize LSB
+            APP_USBD_CLASS_DESCRIPTOR_WRITE(MSB_16(NRF_DRV_USBD_EPSIZE));                // wMaxPacketSize MSB
+            APP_USBD_CLASS_DESCRIPTOR_WRITE(bInterval);                                  // bInterval
+                                                                                         // APP_USBD_CLASS_DESCRIPTOR_WRITE(bInterval); // bInterval
         }
     }
 
@@ -622,7 +622,6 @@ static ret_code_t hid_kbd_on_idle(app_usbd_class_inst_t const *p_inst, uint8_t r
     return NRF_SUCCESS;
 }
 
-//TODO
 ret_code_t KBD_Send(app_usbd_hid_kbd_t const *p_kbd, uint8_t *rep_buff)
 {
     app_usbd_class_inst_t const *p_inst = (app_usbd_class_inst_t const *)p_kbd;
@@ -644,6 +643,40 @@ ret_code_t KBD_Send(app_usbd_hid_kbd_t const *p_kbd, uint8_t *rep_buff)
     CRITICAL_REGION_EXIT();
 
     return ret;
+}
+
+uint8_t custom_LED_state_get(app_usbd_hid_kbd_t const *p_kbd)
+{
+    app_usbd_hid_kbd_ctx_t *p_kbd_ctx = hid_kbd_ctx_get(p_kbd);
+    return (p_kbd_ctx->leds_state);
+}
+
+ret_code_t Dongle_send(app_usbd_hid_kbd_t const *p_kbd, uint8_t *key_code)
+{
+    // uint16_t index, bitIndex;
+    //  memset(Press_Buffer, 0, rep_byte-2);
+    app_usbd_hid_kbd_ctx_t *p_kbd_ctx = hid_kbd_ctx_get(p_kbd);
+
+    // index = _key / 8;
+    // bitIndex = _key % 8;
+
+    app_usbd_hid_access_lock(&p_kbd_ctx->hid_ctx);
+    // if(press)
+    // p_kbd_ctx->rep.key_table[index] = (0x01 << bitIndex) | p_kbd_ctx->rep.key_table[index];
+    // else
+    // p_kbd_ctx->rep.key_table[index] = (0xfe << bitIndex) & p_kbd_ctx->rep.key_table[index];
+    // p_kbd_ctx->rep.key_table[0] = key_code;
+    memcpy((p_kbd_ctx->rep.key_table), key_code, keyboard_rep_byte);
+
+    app_usbd_hid_access_unlock(&p_kbd_ctx->hid_ctx);
+
+    if (app_usbd_hid_trans_required(&p_kbd_ctx->hid_ctx))
+    {
+        /*New transfer need to be triggered*/
+        return hid_kbd_transfer_set(p_kbd);
+    }
+
+    return NRF_SUCCESS;
 }
 
 /** @} */

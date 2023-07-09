@@ -139,14 +139,14 @@ extern "C" {
         0x15, 0x00,  /* logic min */ \
         0x25, 0x01,  /* logic max */ \
         0x75, 0x01,  /* rep size 1 */ \
-        0x95, 0x08,  /* rep count (07) */ \
+        0x95, 0x08,  /* rep count (08) */ \
         0x09, 0xe9,  /* usage volume increase */ \
         0x09, 0xea,  /* usage volume decrease */ \
         0x09, 0xe2,  /* usage mute */ \
         0x09, 0xcd,  /* uasge play/pause */ \
+        0x09, 0xb7,  /* uasge stop */ \
         0x09, 0xb5,  /* uasge next track */ \
         0x09, 0xb6,  /* uasge Previous track */ \
-        0x09, 0xb7,  /* uasge stop */ \
         0x0a, 0x92, 0x01, \
         0x81, 0x02,  /* output */ \
         \
@@ -159,7 +159,6 @@ extern "C" {
 //        0x05, 0x01,                    /* USAGE_PAGE (Generic Desktop)                   */ \
 //        0x09, 0x06,                    /* USAGE (Keyboard)                               */ \
 //        0xa1, 0x01,                    /* COLLECTION (Application)                       */ \
-//        0x85, REPORT_ID_KEYBOARD,      /* Report ID = 1                                  */ \
 //        /* Modifier */ \
 //        0x05, 0x07,                    /*   USAGE_PAGE (KeyCodes)                        */ \
 //        0x75, 0x01,                    /*   REPORT_SIZE (1)                              */ \
@@ -202,15 +201,15 @@ extern "C" {
 //        0x15, 0x00,  /* logic min */ \
 //        0x25, 0x01,  /* logic max */ \
 //        0x75, 0x01,  /* rep size 1 */ \
-//        0x95, 0x08,  /* rep count (07) */ \
+//        0x95, 0x08,  /* rep count (08) */ \
 //        0x09, 0xe9,  /* usage volume increase */ \
 //        0x09, 0xea,  /* usage volume decrease */ \
 //        0x09, 0xe2,  /* usage mute */ \
 //        0x09, 0xcd,  /* uasge play/pause */ \
+//        0x09, 0xb7,  /* uasge stop */ \
 //        0x09, 0xb5,  /* uasge next track */ \
 //        0x09, 0xb6,  /* uasge Previous track */ \
-//        0x09, 0xb7,  /* uasge stop */ \
-//        0x09, 0xb0,  /* usage */ \
+//        0x0a, 0x92, 0x01, \
 //        0x81, 0x02,  /* output */ \
 //        \
 //        0xc0,                           /* END_COLLECTION                                 */\

@@ -1,18 +1,28 @@
 #include "Key.h"
+#include "nrf_delay.h"
+#include "nrf_gpio.h"
 
-void Key_Event(uint32_t Key_number)
+uint32_t Read_Pin_Value(uint32_t key_number)
 {
-}
-
-void Key_Noting(uint32_t Key_number)
-{
+    uint32_t i;
+    i = nrf_gpio_pin_read(Key1);
+    nrf_delay_ms(1);
+    if (i == nrf_gpio_pin_read(Key1) && i == 0)
+    {
+        return i;
+    }
+    else
+    {
+        return ~i;
+    }
 }
 
 bool Is_Key_Pressed(uint32_t key_number)
 {
-    nrf_gpio_cfg_input(key_number, NRF_GPIO_PIN_PULLUP);
-
-    if (nrf_gpio_pin_read(key_number) == 0)
+    uint32_t i;
+    i = nrf_gpio_pin_read(Key1);
+    nrf_delay_ms(1);
+    if (i == nrf_gpio_pin_read(Key1) && i == 0)
     {
         return true;
     }

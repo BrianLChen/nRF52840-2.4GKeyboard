@@ -62,6 +62,7 @@
       <file file_name="../../Custom_Lib/custom_usbd_hid_kbd.c">
         <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
+      <file file_name="../../Custom_Lib/ws2812.c" />
     </folder>
     <folder Name="None">
       <file file_name="../../modules/nrfx/mdk/ses_startup_nrf52840.s" />

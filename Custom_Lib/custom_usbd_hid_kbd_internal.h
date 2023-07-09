@@ -46,7 +46,7 @@ extern "C"
 #endif
 
 #define keyboard_rep_byte 17
-#define volume_rep_byte 2
+#define consumer_rep_byte 2
 
     /**
      * @defgroup app_usbd_hid_kbd_internal USB HID keyboard internals
@@ -91,34 +91,6 @@ extern "C"
         uint8_t set_report;            //!< Set report flag.
     } app_usbd_hid_kbd_ctx_t;
     
-    // report buffer for Keyboard Desktop page
-    typedef struct
-    {
-        app_usbd_hid_kbd_ctx_t hid_ctx;
-        struct custom_usbd_hid_keyboard_ctx_internal_s
-        {
-            uint8_t keytable[keyboard_rep_byte];
-        } rep;
-
-        uint8_t report_buffer[keyboard_rep_byte];
-        uint8_t led_state;
-        uint8_t set_report;
-    } custom_usbd_hid_keyboard_ctx_t;
-    
-    // report buffer for Volume Control Consumer Page
-    typedef struct
-    {
-        app_usbd_hid_kbd_ctx_t hid_ctx;
-        struct custom_usbd_hid_volume_ctx_internal_s
-        {
-            uint8_t keytable[volume_rep_byte];
-        } rep;
-
-        uint8_t report_buffer[volume_rep_byte];
-        uint8_t led_state;
-        uint8_t set_report;
-    } custom_usbd_hid_consumer_ctx_t;
-
 /**
  * @brief HID keyboard configuration macro.
  *
