@@ -42,6 +42,7 @@
       project_directory=""
       project_type="Executable" />
     <folder Name="Application">
+      <file file_name="Application/Keyboard_Config.h" />
       <file file_name="Application/main.c">
         <configuration Name="Debug" build_exclude_from_build="No" />
       </file>

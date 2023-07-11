@@ -67,6 +67,7 @@
 #include "nrf_log_default_backends.h"
 
 #include "Key.h"
+#include "Keyboard_Config.h"
 #include "LED.h"
 #include "ws2812.h"
 
@@ -87,8 +88,8 @@
 #define MOS_CTRL_PIN NRF_GPIO_PIN_MAP(1, 8)
 
 /* WS2812 SPI Pin */
-#define WS2812_MOSI_PIN NRF_GPIO_PIN_MAP(1,15)
-#define WS2812_SCK_PIN NRF_GPIO_PIN_MAP(1,14)
+#define WS2812_MOSI_PIN NRF_GPIO_PIN_MAP(1, 15)
+#define WS2812_SCK_PIN NRF_GPIO_PIN_MAP(1, 14)
 
 // GAZELL
 static uint8_t m_data_payload[TX_PAYLOAD_LENGTH]; /**< Payload to send to Host. */
@@ -109,11 +110,11 @@ const uint8_t ZERO_buff[16] = {0};
 // SPI
 static const nrfx_spim_t scan_spi = NRFX_SPIM_INSTANCE(0);
 
-static uint8_t m_tx_buff[2];
+static uint8_t m_tx_buff[1];
 static uint8_t m_rx_buff[2];
-static uint8_t scan_buff = {0};
+static uint8_t scan_buff[KEY_NUMBER / 8];
 
-static const nrfx_spim_xfer_desc_t scan_spi_desc = {m_tx_buff, 2, m_rx_buff, 2};
+static const nrfx_spim_xfer_desc_t scan_spi_desc = {m_tx_buff, 1, m_rx_buff, KEY_NUMBER / 8};
 
 // WS2812 RGB SPI
 static const nrfx_spim_t WS2812_SPI = NRFX_SPIM_INSTANCE(1);
@@ -125,8 +126,8 @@ uint8_t Mode;                        // Mode indicator
 
 // uint8_t KEY_TABLE[8] = {KEYBOARD_A, KEYBOARD_B, KEYBOARD_C, KEYBOARD_D,
 //     KEYBOARD_E, MODIFIER_LEFT_UI, CONSUMER_VOLUME_DECREASE, CONSUMER_MUTE};
-uint8_t KEY_TABLE[8] = {KEYBOARD_A, KEYBOARD_B, KEYBOARD_C, KEYBOARD_D,
-    KEYBOARD_E, KEYBOARD_F, KEYBOARD_G, KEYBOARD_H};
+// uint8_t KEY_TABLE[8] = {KEYBOARD_A, KEYBOARD_B, KEYBOARD_C, KEYBOARD_D,
+//    KEYBOARD_E, KEYBOARD_F, KEYBOARD_G, KEYBOARD_H};
 
 /**
  * @brief Enable USB power detection
@@ -392,24 +393,31 @@ static inline void Sleep_Counter(nrf_timer_event_t event_type, void *p_context)
 
 // A function to appley debounce filter
 
-static inline uint32_t debouncefilter(uint16_t delay)
+static inline uint32_t debouncefilter()
 {
-    uint8_t scan_output;
-    nrf_delay_us(delay);
+    uint8_t scan_output[KEY_NUMBER / 8];
+    nrf_delay_us(DEBOUNCE_DELAY);
     APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
-    scan_output = scan_buff ^ m_rx_buff[0];
-    scan_buff = scan_output;
+    for (int i = 0; i < KEY_NUMBER / 8; i++)
+    {
+        scan_output[i] = scan_buff[i] ^ m_rx_buff[i];
+        scan_buff[i] = ~scan_output[i];
+    }
 }
 
 inline void remap()
 {
     uint8_t bitIndex, index;
-    uint8_t remap_buff = ~scan_buff;
-    for (uint8_t i = 0; i < 8; i++)
+    // uint8_t remap_buff = ~scan_buff;
+    uint8_t remap_buff[KEY_NUMBER/8];
+    memcpy(remap_buff, scan_buff, KEY_NUMBER/8);
+    for (uint8_t i = 0; i < KEY_NUMBER; i++)
     {
+        index = i/8;
+        bitIndex = i%8;
         // uint8_t temp = 0x01 << i;
         // uint8_t temp2 = temp & remap_buff;
-        if (remap_buff & (0x01 << i))
+        if (remap_buff[index] & (0x01 << bitIndex))
         {
             bitIndex = KEY_TABLE[i] % 8;
             index = KEY_TABLE[i] / 8;
@@ -431,7 +439,7 @@ static void scan_key(nrf_timer_event_t event_type, void *p_context)
     nrf_gpio_pin_set(PL_Pin);
 
     APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
-    scan_buff = m_rx_buff[0];
+    memcpy(scan_buff, m_rx_buff, KEY_NUMBER / 8);
 
     uint32_t a = debouncefilter(100);
 
@@ -585,7 +593,7 @@ void input_get(uint8_t *array)
     nrf_gpio_pin_set(PL_Pin);
 
     APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
-    scan_buff = m_rx_buff[0];
+    memcpy(scan_buff, m_rx_buff, KEY_NUMBER/8);
 
     uint32_t a = debouncefilter(100);
 
@@ -644,7 +652,7 @@ static void add_pack()
     nrf_gpio_pin_set(PL_Pin);
 
     APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
-    scan_buff = m_rx_buff[0];
+    memcpy(scan_buff, m_rx_buff, KEY_NUMBER/8);
 
     uint32_t a = debouncefilter(100);
 
@@ -786,14 +794,14 @@ void Wireless_Mode()
     // set frequency hopping
     nrf_gzll_set_channel_table(Channel_Table, Channel_Table_Size);
     nrf_gzll_set_timeslots_per_channel(4);
-    nrf_gzll_set_timeslots_per_channel_when_device_out_of_sync(2);
+    nrf_gzll_set_timeslots_per_channel_when_device_out_of_sync(20);
     nrf_gzll_set_device_channel_selection_policy(NRF_GZLL_DEVICE_CHANNEL_SELECTION_POLICY_USE_CURRENT);
     nrf_gzll_set_sync_lifetime(8);
 
     // Attempt sending every packet up to MAX_TX_ATTEMPTS times.
     nrf_gzll_set_max_tx_attempts(MAX_TX_ATTEMPTS);
 
-    //input_get(m_data_payload);
+    // input_get(m_data_payload);
 
     result_value = nrf_gzll_add_packet_to_tx_fifo(PIPE_NUMBER, m_data_payload, TX_PAYLOAD_LENGTH);
 
@@ -846,12 +854,12 @@ int main(void)
 
     APP_ERROR_CHECK(nrfx_spim_init(&scan_spi, &spi_config, NULL, NULL));
 
-    //APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
+    // APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
 
-        input_get(m_data_payload);
+    input_get(m_data_payload);
 
     ws2812_init(RGB_LIGHT);
-    //memset(m_rx_buff, 0, 2);
+    // memset(m_rx_buff, 0, 2);
 
     for (;;)
     {
