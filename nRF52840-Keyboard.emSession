@@ -2,7 +2,8 @@
 <session>
  <Bookmarks/>
  <Breakpoints groups="Breakpoints" active_group="Breakpoints">
-  <BreakpointListItem trigger="" line="470" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="Application/main.c" useHWbreakpoint="false"/>
+  <BreakpointListItem trigger="" line="323" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="4" filename="Application/main.c" useHWbreakpoint="false"/>
+  <BreakpointListItem trigger="" line="471" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="Application/main.c" useHWbreakpoint="false"/>
   <BreakpointListItem trigger="" line="390" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="../../components/libraries/pwr_mgmt/nrf_pwr_mgmt.c" useHWbreakpoint="false"/>
  </Breakpoints>
  <ExecutionProfileWindow/>
@@ -62,30 +63,34 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="60" y="445" useTextEdit="1" path="Application/main.c" left="0" selected="1" top="440" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="474" useTextEdit="1" path="Application/main.c" left="0" selected="1" top="449" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="195" useTextEdit="1" path="../../components/libraries/experimental_section_vars/nrf_section_iter.h" left="0" top="158" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="906" useTextEdit="1" path="../../modules/nrfx/hal/nrf_power.h" left="0" top="869" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="13" y="0" useTextEdit="1" path="../../Custom_Lib/LED.c" left="0" top="0" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="29" y="9" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Custom_Lib/LED.c" path="../../Custom_Lib/LED.h" left="0" top="0" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="16" useTextEdit="1" path="../../components/boards/waveshare.h" left="0" top="0" codecName="UTF-8"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="43" y="353" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../components/proprietary_rf/gzll/nrf_gzll.h" left="0" top="353" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="21" y="49" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../components/proprietary_rf/gzll/nrf_gzll.h" left="0" top="24" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="20" y="43" useTextEdit="1" path="../../Custom_Lib/custom_usbd_hid_kbd.c" left="0" top="18" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="31" y="57" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Custom_Lib/custom_usbd_hid_kbd.c" path="../../Custom_Lib/custom_usbd_hid_kbd.h" left="0" top="36" codecName="UTF-8"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="75" y="135" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Custom_Lib/custom_usbd_hid_kbd.h" path="../../Custom_Lib/custom_usbd_hid_kbd_desc.h" left="0" top="100" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="75" y="135" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Custom_Lib/custom_usbd_hid_kbd.h" path="../../Custom_Lib/custom_usbd_hid_kbd_desc.h" left="0" top="121" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="19" y="107" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../modules/nrfx/drivers/src/nrfx_spi.c" left="0" top="76" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="11" y="115" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/modules/nrfx/drivers/src/nrfx_spi.c" path="../../modules/nrfx/drivers/src/prs/nrfx_prs.c" left="0" top="96" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="10" y="64" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="C:/Program Files/SEGGER/SEGGER Embedded Studio for ARM 7.20/include/string.h" left="0" top="31" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="26" y="79" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Custom_Lib/custom_usbd_hid_kbd.h" path="../../Custom_Lib/custom_usbd_hid_kbd_internal.h" left="0" top="46" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="1" y="101" useTextEdit="1" path="../../Custom_Lib/ws2812.c" left="0" top="71" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="48" y="22" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Custom_Lib/ws2812.c" path="../../Custom_Lib/ws2812.h" left="0" top="0" codecName="UTF-8"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="22" y="12" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Custom_Lib/ws2812.h" path="../../Custom_Lib/ws2812_effect.h" left="2" top="8" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="22" y="12" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Custom_Lib/ws2812.h" path="../../Custom_Lib/ws2812_effect.h" left="2" top="6" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="345" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Custom_Lib/ws2812.c" path="../../modules/nrfx/drivers/src/nrfx_spim.c" left="0" top="327" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="7" y="103" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../modules/nrfx/drivers/include/nrfx_spim.h" left="0" top="92" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="38" y="158" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../components/libraries/util/app_error.h" left="0" top="138" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="64" useTextEdit="1" path="../../components/libraries/delay/nrf_delay.h" left="0" top="31" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="49" y="62" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../components/libraries/log/nrf_log_default_backends.h" left="0" top="29" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="0" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../components/libraries/pwr_mgmt/nrf_pwr_mgmt.h" left="0" top="104" codecName="UTF-8"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="22" y="6" useTextEdit="1" path="Application/Keyboard_Config.h" left="0" top="0" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="27" y="12" useTextEdit="1" path="Application/Keyboard_Config.h" left="0" top="0" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="2" y="66" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../modules/nrfx/drivers/include/nrfx_gpiote.h" left="0" top="66" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="5" y="297" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../modules/nrfx/drivers/src/nrfx_gpiote.c" left="0" top="282" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="4" y="126" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/Brian_Files/nRF52840-Keyboard/Application/main.c" path="../../modules/nrfx/hal/nrf_gpio.h" left="0" top="108" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="0" useTextEdit="1" openedFrom="D:/C_and_C++/nrf_files/components/proprietary_rf/gzll/nrf_gzll.h" path="../../components/proprietary_rf/gzll/nrf_gzll_constants.h" left="0" top="156" codecName="UTF-8"/>
  </Files>
  <EMStudioWindow activeProject="nRF52840-Keyboard" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="Debug" sessionSettings="" debugSearchFileMap="../../../../../common_headers/nrf_delay.h&#xa;&#xa;../../../../../common_headers/nrf_gpio.h&#xa;&#xa;../../../../flywheel/nrf_flywheel.c&#xa;&#xa;../../../../impala/nrf_impala.c&#xa;&#xa;../../../../notification_manager/nrf_notification_manager.c&#xa;&#xa;../../../nrf_gzll.c&#xa;&#xa;C:/gzll/private/components/gzll/nrf_gzll.c&#xa;&#xa;C:/gzll/private/components/impala/nrf_impala.c&#xa;&#xa;C:/gzll/private/components/link_core/nrf_link_core.c&#xa;&#xa;c:/gzll/sdk/sdk/nrf5/components/toolchain/cmsis/include/cmsis_gcc.h&#xa;&#xa;c:/gzll/sdk/sdk/nrf5/components/toolchain/cmsis/include/core_cm4.h&#xa;" fileDialogInitialDirectory="D:/C_and_C++/nrf_files/Custom_Lib" debugSearchPath="" autoConnectCapabilities="3711"/>
 </session>

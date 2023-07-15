@@ -59,6 +59,7 @@
 #include "bsp.h"
 #include "custom_usbd_hid_kbd.h"
 #include "nrf_drv_spi.h"
+#include "nrfx_gpiote.h"
 #include "nrfx_spim.h"
 #include "nrfx_timer.h"
 
@@ -83,7 +84,9 @@
 #define WIRELESS_MODE_PIN NRF_GPIO_PIN_MAP(1, 2)
 #define BLE_MODE_PIN NRF_GPIO_PIN_MAP(1, 3)
 
+/* SPI Scan Pin */
 #define PL_Pin NRF_GPIO_PIN_MAP(1, 11)
+
 #define WAKE_UP_PIN NRF_GPIO_PIN_MAP(1, 7)
 #define MOS_CTRL_PIN NRF_GPIO_PIN_MAP(1, 8)
 
@@ -91,6 +94,9 @@
 #define WS2812_MOSI_PIN NRF_GPIO_PIN_MAP(1, 15)
 #define WS2812_SCK_PIN NRF_GPIO_PIN_MAP(1, 14)
 
+/* Knob Pin */
+#define KNOB_A_PIN NRF_GPIO_PIN_MAP(0, 11)
+#define KNOB_B_PIN NRF_GPIO_PIN_MAP(0, 25)
 // GAZELL
 static uint8_t m_data_payload[TX_PAYLOAD_LENGTH]; /**< Payload to send to Host. */
 static uint8_t m_ack_payload[RX_RECEIVE_LENGTH];  /**< Placeholder for received ACK payloads from Host. */
@@ -123,6 +129,8 @@ static const ws2812_t RGB_LIGHT = {WS2812_SPI, WS2812_MOSI_PIN, WS2812_SCK_PIN};
 // Other
 uint32_t Sleep_Time_Out_Counter = 0; // counter for sleep time
 uint8_t Mode;                        // Mode indicator
+uint8_t KNOB_CW = 0;
+uint8_t KNOB_CCW = 0;
 
 // uint8_t KEY_TABLE[8] = {KEYBOARD_A, KEYBOARD_B, KEYBOARD_C, KEYBOARD_D,
 //     KEYBOARD_E, MODIFIER_LEFT_UI, CONSUMER_VOLUME_DECREASE, CONSUMER_MUTE};
@@ -194,6 +202,7 @@ void Pin_Cfg(void)
     nrf_gpio_cfg_input(WIRE_MODE_PIN, NRF_GPIO_PIN_PULLUP);
     nrf_gpio_cfg_input(WIRELESS_MODE_PIN, NRF_GPIO_PIN_PULLUP);
     nrf_gpio_cfg_input(BLE_MODE_PIN, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_input(KNOB_B_PIN, NRF_GPIO_PIN_PULLUP);
 
     // nrf_gpio_cfg_input(Mode_Pin, NRF_GPIO_PIN_PULLUP);
 }
@@ -275,6 +284,7 @@ static void Enter_Sleep_Mode()
     nrfx_spim_uninit(&scan_spi);
 
     nrf_gzll_disable();
+    nrfx_gpiote_uninit();
 
     nrf_pwr_mgmt_shutdown(NRF_PWR_MGMT_SHUTDOWN_GOTO_SYSOFF);
 }
@@ -293,6 +303,57 @@ void scan_timer_init(void *scan_func)
     nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
 
     nrfx_timer_enable(&TIMER_KBD);
+}
+
+/* Knob GPIOTE callback function */
+void in_pin_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
+{
+    // nrf_delay_us(50);
+    uint32_t B_level = nrf_gpio_pin_read(KNOB_B_PIN);
+    if (B_level != 0)
+    {
+        KNOB_CW = 1;
+        KNOB_CCW = 0;
+    }
+    else
+    {
+        KNOB_CCW = 1;
+        KNOB_CW = 0;
+    }
+    // if (B_level == 0)
+    //{
+    //     KNOB_CW = 1;
+    // }
+    // else
+    //{
+    //     KNOB_CW = 0;
+    // }
+
+    // if (B_level != 0)
+    //{
+    //     KNOB_CCW = 1;
+    // }
+    // else
+    //{
+    //     KNOB_CCW = 0;
+    // }
+}
+
+/* init gpiote for Knob */
+static void knob_init(void)
+{
+    ret_code_t err_code;
+
+    err_code = nrfx_gpiote_init();
+    APP_ERROR_CHECK(err_code);
+
+    nrfx_gpiote_in_config_t in_config = NRFX_GPIOTE_RAW_CONFIG_IN_SENSE_HITOLO(false);
+    in_config.pull = NRF_GPIO_PIN_PULLUP;
+
+    err_code = nrfx_gpiote_in_init(KNOB_A_PIN, &in_config, in_pin_handler);
+    APP_ERROR_CHECK(err_code);
+
+    nrfx_gpiote_in_event_enable(KNOB_A_PIN, true);
 }
 
 /**
@@ -384,7 +445,7 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
 static inline void Sleep_Counter(nrf_timer_event_t event_type, void *p_context)
 {
     Sleep_Time_Out_Counter += 1;
-    if (Sleep_Time_Out_Counter == 10)
+    if (Sleep_Time_Out_Counter == 180)
     {
         Sleep_Time_Out_Counter = 0;
         Enter_Sleep_Mode();
@@ -395,26 +456,33 @@ static inline void Sleep_Counter(nrf_timer_event_t event_type, void *p_context)
 
 static inline uint32_t debouncefilter()
 {
+
     uint8_t scan_output[KEY_NUMBER / 8];
     nrf_delay_us(DEBOUNCE_DELAY);
+        nrf_gpio_pin_set(PL_Pin);
+
     APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
     for (int i = 0; i < KEY_NUMBER / 8; i++)
     {
-        scan_output[i] = scan_buff[i] ^ m_rx_buff[i];
-        scan_buff[i] = ~scan_output[i];
+        scan_output[i] = (~scan_buff[i]) & (~m_rx_buff[i]);
+        scan_buff[i] = scan_output[i];
     }
+
+        nrf_gpio_pin_clear(PL_Pin);
+
 }
+
 
 inline void remap()
 {
     uint8_t bitIndex, index;
     // uint8_t remap_buff = ~scan_buff;
-    uint8_t remap_buff[KEY_NUMBER/8];
-    memcpy(remap_buff, scan_buff, KEY_NUMBER/8);
+    uint8_t remap_buff[KEY_NUMBER / 8];
+    memcpy(remap_buff, scan_buff, KEY_NUMBER / 8);
     for (uint8_t i = 0; i < KEY_NUMBER; i++)
     {
-        index = i/8;
-        bitIndex = i%8;
+        index = i / 8;
+        bitIndex = i % 8;
         // uint8_t temp = 0x01 << i;
         // uint8_t temp2 = temp & remap_buff;
         if (remap_buff[index] & (0x01 << bitIndex))
@@ -431,6 +499,21 @@ inline void remap()
             continue;
         }
     }
+
+    if (KNOB_CCW)
+    {
+        CONSUMER_Rep_Buff[1] = CONSUMER_Rep_Buff[1] | 0x01;
+        // KNOB_CW = 0;
+        // KNOB_CCW = 0;
+    }
+    else if (KNOB_CW)
+    {
+        CONSUMER_Rep_Buff[1] = CONSUMER_Rep_Buff[1] | 0x02;
+        // KNOB_CW = 0;
+        // KNOB_CCW = 0;
+    }
+    KNOB_CW = 0;
+    KNOB_CCW = 0;
 }
 
 // Function to scan the key state
@@ -440,6 +523,7 @@ static void scan_key(nrf_timer_event_t event_type, void *p_context)
 
     APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
     memcpy(scan_buff, m_rx_buff, KEY_NUMBER / 8);
+    nrf_gpio_pin_clear(PL_Pin);
 
     uint32_t a = debouncefilter(100);
 
@@ -471,7 +555,6 @@ static void scan_key(nrf_timer_event_t event_type, void *p_context)
     memcpy(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
     memcpy(&CONSUMER_Rep_Buff_Prev[1], &CONSUMER_Rep_Buff[1], consumer_rep_byte - 1);
 
-    nrf_gpio_pin_clear(PL_Pin);
     Check_Mode();
 }
 
@@ -593,7 +676,8 @@ void input_get(uint8_t *array)
     nrf_gpio_pin_set(PL_Pin);
 
     APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
-    memcpy(scan_buff, m_rx_buff, KEY_NUMBER/8);
+    memcpy(scan_buff, m_rx_buff, KEY_NUMBER / 8);
+    nrf_gpio_pin_clear(PL_Pin);
 
     uint32_t a = debouncefilter(100);
 
@@ -624,7 +708,6 @@ void input_get(uint8_t *array)
 
     memcpy(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
     memcpy(&CONSUMER_Rep_Buff_Prev[1], &CONSUMER_Rep_Buff[1], consumer_rep_byte - 1);
-    nrf_gpio_pin_clear(PL_Pin);
 
     Check_Mode();
 }
@@ -652,7 +735,7 @@ static void add_pack()
     nrf_gpio_pin_set(PL_Pin);
 
     APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
-    memcpy(scan_buff, m_rx_buff, KEY_NUMBER/8);
+    memcpy(scan_buff, m_rx_buff, KEY_NUMBER / 8);
 
     uint32_t a = debouncefilter(100);
 
@@ -793,10 +876,10 @@ void Wireless_Mode()
 
     // set frequency hopping
     nrf_gzll_set_channel_table(Channel_Table, Channel_Table_Size);
-    nrf_gzll_set_timeslots_per_channel(4);
+    nrf_gzll_set_timeslots_per_channel(3);
     nrf_gzll_set_timeslots_per_channel_when_device_out_of_sync(20);
     nrf_gzll_set_device_channel_selection_policy(NRF_GZLL_DEVICE_CHANNEL_SELECTION_POLICY_USE_CURRENT);
-    nrf_gzll_set_sync_lifetime(8);
+    nrf_gzll_set_sync_lifetime(45);
 
     // Attempt sending every packet up to MAX_TX_ATTEMPTS times.
     nrf_gzll_set_max_tx_attempts(MAX_TX_ATTEMPTS);
@@ -860,6 +943,8 @@ int main(void)
 
     ws2812_init(RGB_LIGHT);
     // memset(m_rx_buff, 0, 2);
+
+    knob_init();
 
     for (;;)
     {
