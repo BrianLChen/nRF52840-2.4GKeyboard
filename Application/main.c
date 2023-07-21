@@ -51,6 +51,7 @@
 
 #include "nrf_gzll.h"
 #include "nrf_gzll_error.h"
+// #include "nrf_gzp.h"
 
 #include "app_error.h"
 #include "app_timer.h"
@@ -72,11 +73,16 @@
 #include "LED.h"
 #include "ws2812.h"
 
+/* LED indicator */
+#define CAPSLOCK_PIN NRF_GPIO_PIN_MAP(0, 13)
+#define NUMLOCK_PIN NRF_GPIO_PIN_MAP(0, 14)
+#define SCRLOCK_PIN NRF_GPIO_PIN_MAP(0, 15)
+
 /* Gazell Config */
 #define PIPE_NUMBER 1                       /**< Pipe 0 is used in this example. */
-#define TX_PAYLOAD_LENGTH keyboard_rep_byte /**< 1-byte payload length is used when transmitting. */
+#define TX_PAYLOAD_LENGTH keyboard_rep_byte /**<  */
 #define RX_RECEIVE_LENGTH 1
-#define MAX_TX_ATTEMPTS 20 /**< Maximum number of transmission attempts */
+#define MAX_TX_ATTEMPTS 5 /**< Maximum number of transmission attempts */
 #define Channel_Table_Size 5
 
 /* Mode Detect Pin */
@@ -88,7 +94,7 @@
 #define PL_Pin NRF_GPIO_PIN_MAP(1, 11)
 
 #define WAKE_UP_PIN NRF_GPIO_PIN_MAP(1, 7)
-#define MOS_CTRL_PIN NRF_GPIO_PIN_MAP(1, 8)
+#define MOS_CTRL_PIN NRF_GPIO_PIN_MAP(1, 5)
 
 /* WS2812 SPI Pin */
 #define WS2812_MOSI_PIN NRF_GPIO_PIN_MAP(1, 15)
@@ -112,12 +118,13 @@ uint8_t KEYBOARD_Rep_Buff_Prev[keyboard_rep_byte] = {0};
 uint8_t CONSUMER_Rep_Buff[consumer_rep_byte] = {0};
 uint8_t CONSUMER_Rep_Buff_Prev[consumer_rep_byte] = {0};
 const uint8_t ZERO_buff[16] = {0};
+uint8_t buffer[17] = {0};
 
 // SPI
 static const nrfx_spim_t scan_spi = NRFX_SPIM_INSTANCE(0);
 
 static uint8_t m_tx_buff[1];
-static uint8_t m_rx_buff[2];
+static uint8_t m_rx_buff[KEY_NUMBER / 8];
 static uint8_t scan_buff[KEY_NUMBER / 8];
 
 static const nrfx_spim_xfer_desc_t scan_spi_desc = {m_tx_buff, 1, m_rx_buff, KEY_NUMBER / 8};
@@ -128,9 +135,11 @@ static const ws2812_t RGB_LIGHT = {WS2812_SPI, WS2812_MOSI_PIN, WS2812_SCK_PIN};
 
 // Other
 uint32_t Sleep_Time_Out_Counter = 0; // counter for sleep time
-uint8_t Mode;                        // Mode indicator
+uint8_t gzll_disconnect_counter = 0;
+uint8_t Mode; // Mode indicator
 uint8_t KNOB_CW = 0;
 uint8_t KNOB_CCW = 0;
+uint8_t KNOB_SCAN_EN = 1;
 
 // uint8_t KEY_TABLE[8] = {KEYBOARD_A, KEYBOARD_B, KEYBOARD_C, KEYBOARD_D,
 //     KEYBOARD_E, MODIFIER_LEFT_UI, CONSUMER_VOLUME_DECREASE, CONSUMER_MUTE};
@@ -171,40 +180,50 @@ static void kbd_status(void)
 {
     if (app_usbd_hid_kbd_led_state_get(&m_app_hid_kbd, APP_USBD_HID_KBD_LED_NUM_LOCK))
     {
-        LED_On(LED1);
+        LED_On(NUMLOCK_PIN);
     }
     else
     {
-        LED_Off(LED1);
+        LED_Off(NUMLOCK_PIN);
     }
 
     if (app_usbd_hid_kbd_led_state_get(&m_app_hid_kbd, APP_USBD_HID_KBD_LED_CAPS_LOCK))
     {
-        LED_On(LED0);
+        LED_On(CAPSLOCK_PIN);
     }
     else
     {
-        LED_Off(LED0);
+        LED_Off(CAPSLOCK_PIN);
+    }
+
+    if (app_usbd_hid_kbd_led_state_get(&m_app_hid_kbd, APP_USBD_HID_KBD_LED_SCROLL_LOCK))
+    {
+        LED_On(SCRLOCK_PIN);
+    }
+    else
+    {
+        LED_Off(SCRLOCK_PIN);
     }
 }
 
 void Pin_Cfg(void)
 {
-    nrf_gpio_cfg_output(TX_PIN_NUMBER);
-    nrf_gpio_cfg_output(RX_PIN_NUMBER);
-    nrf_gpio_cfg_output(LED0);
-    nrf_gpio_cfg_output(LED1);
+    nrf_gpio_cfg_output(CAPSLOCK_PIN);
+    nrf_gpio_cfg_output(NUMLOCK_PIN);
+    nrf_gpio_cfg_output(SCRLOCK_PIN);
 
     nrf_gpio_cfg_output(PL_Pin);
     nrf_gpio_pin_clear(PL_Pin);
 
-    nrf_gpio_cfg_input(Key1, NRF_GPIO_PIN_PULLUP); // Input_button
     nrf_gpio_cfg_input(WIRE_MODE_PIN, NRF_GPIO_PIN_PULLUP);
     nrf_gpio_cfg_input(WIRELESS_MODE_PIN, NRF_GPIO_PIN_PULLUP);
     nrf_gpio_cfg_input(BLE_MODE_PIN, NRF_GPIO_PIN_PULLUP);
-    nrf_gpio_cfg_input(KNOB_B_PIN, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_input(KNOB_B_PIN, NRF_GPIO_PIN_NOPULL);
+    nrf_gpio_cfg_input(KNOB_A_PIN, NRF_GPIO_PIN_NOPULL);
 
-    // nrf_gpio_cfg_input(Mode_Pin, NRF_GPIO_PIN_PULLUP);
+    LED_Off(CAPSLOCK_PIN);
+    LED_Off(NUMLOCK_PIN);
+    LED_Off(SCRLOCK_PIN);
 }
 
 /* Check Mode switch, if value changes, reset the system */
@@ -248,7 +267,7 @@ void Check_Mode()
 // config wake up key before ture into system off mode
 void wake_up_key()
 {
-    nrf_gpio_cfg_input(WAKE_UP_PIN, NRF_GPIO_PIN_NOPULL);
+    nrf_gpio_cfg_input(WAKE_UP_PIN, NRF_GPIO_PIN_PULLDOWN);
     nrf_gpio_cfg_sense_set(WAKE_UP_PIN, NRF_GPIO_PIN_SENSE_HIGH);
 }
 
@@ -271,11 +290,17 @@ NRF_PWR_MGMT_HANDLER_REGISTER(shutdown_handler, 0);
 static void Enter_Sleep_Mode()
 {
     nrf_gpio_cfg_default(MOS_CTRL_PIN);
-
-    nrf_gpio_cfg_default(LED0);
-    nrf_gpio_cfg_default(LED1);
-    nrf_gpio_cfg_default(LED2);
-    nrf_gpio_cfg_default(LED3);
+    // stop LED indicator
+    nrf_gpio_cfg_default(CAPSLOCK_PIN);
+    nrf_gpio_cfg_default(NUMLOCK_PIN);
+    nrf_gpio_cfg_default(SCRLOCK_PIN);
+    // stop other pins
+    nrf_gpio_cfg_default(WIRE_MODE_PIN);
+    nrf_gpio_cfg_default(WIRELESS_MODE_PIN);
+    nrf_gpio_cfg_default(BLE_MODE_PIN);
+    nrf_gpio_cfg_default(KNOB_B_PIN);
+    nrf_gpio_cfg_default(KNOB_A_PIN);
+    nrf_gpio_cfg_default(MOS_CTRL_PIN);
 
     ws2812_off(RGB_LIGHT);
     ws2812_uninit(RGB_LIGHT);
@@ -298,7 +323,7 @@ void scan_timer_init(void *scan_func)
     timer_cfg.interrupt_priority = 6;
     err_code = nrfx_timer_init(&TIMER_KBD, &timer_cfg, scan_func);
     APP_ERROR_CHECK(err_code);
-    time_ticks = nrfx_timer_us_to_ticks(&TIMER_KBD, 900);
+    time_ticks = nrfx_timer_us_to_ticks(&TIMER_KBD, 850);
     // Set compare, when counter value = time_ticks -> interrupt
     nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
 
@@ -306,19 +331,32 @@ void scan_timer_init(void *scan_func)
 }
 
 /* Knob GPIOTE callback function */
-void in_pin_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
+void KNOB_callback(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
+    nrf_delay_ms(3);
     // nrf_delay_us(50);
-    uint32_t B_level = nrf_gpio_pin_read(KNOB_B_PIN);
-    if (B_level != 0)
+    if (KNOB_SCAN_EN)
     {
-        KNOB_CW = 1;
-        KNOB_CCW = 0;
+        uint32_t B_level = nrf_gpio_pin_read(KNOB_B_PIN);
+        if (B_level == 0)
+        {
+            KNOB_CW = 1;
+            KNOB_CCW = 0;
+            KNOB_SCAN_EN = 0;
+        }
+        else
+        {
+            KNOB_CCW = 1;
+            KNOB_CW = 0;
+            KNOB_SCAN_EN = 0;
+        }
+        KNOB_SCAN_EN = 0;
+        return;
     }
     else
     {
-        KNOB_CCW = 1;
-        KNOB_CW = 0;
+        KNOB_SCAN_EN = 0;
+        return;
     }
     // if (B_level == 0)
     //{
@@ -347,10 +385,12 @@ static void knob_init(void)
     err_code = nrfx_gpiote_init();
     APP_ERROR_CHECK(err_code);
 
-    nrfx_gpiote_in_config_t in_config = NRFX_GPIOTE_RAW_CONFIG_IN_SENSE_HITOLO(false);
-    in_config.pull = NRF_GPIO_PIN_PULLUP;
+    nrfx_gpiote_in_config_t in_config = NRFX_GPIOTE_RAW_CONFIG_IN_SENSE_HITOLO(true);
+    // nrfx_gpiote_in_config_t in_config = NRFX_GPIOTE_RAW_CONFIG_IN_SENSE_LOTOHI(true);
 
-    err_code = nrfx_gpiote_in_init(KNOB_A_PIN, &in_config, in_pin_handler);
+    in_config.pull = NRF_GPIO_PIN_NOPULL;
+
+    err_code = nrfx_gpiote_in_init(KNOB_A_PIN, &in_config, KNOB_callback);
     APP_ERROR_CHECK(err_code);
 
     nrfx_gpiote_in_event_enable(KNOB_A_PIN, true);
@@ -370,11 +410,11 @@ static void hid_kbd_user_ev_handler(app_usbd_class_inst_t const *p_inst,
     {
     case APP_USBD_HID_USER_EVT_OUT_REPORT_READY:
         /* Only one output report IS defined for HID keyboard class. Update LEDs state. */
-        LED_invert(LED2);
+        // LED_invert(LED2);
         kbd_status();
         break;
     case APP_USBD_HID_USER_EVT_IN_REPORT_DONE:
-        LED_invert(LED2);
+        // LED_invert(LED2);
         break;
     case APP_USBD_HID_USER_EVT_SET_BOOT_PROTO:
         UNUSED_RETURN_VALUE(hid_kbd_clear_buffer(p_inst));
@@ -397,7 +437,6 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
         break;
     case APP_USBD_EVT_DRV_SUSPEND:
         app_usbd_suspend_req(); // Allow the library to put the peripheral into sleep mode
-        // bsp_board_leds_off();
         LED_Off(LED0);
         LED_Off(LED1);
         LED_Off(LED2);
@@ -452,6 +491,16 @@ static inline void Sleep_Counter(nrf_timer_event_t event_type, void *p_context)
     }
 }
 
+// Check Fn button state
+static inline uint8_t fn_state()
+{
+    uint8_t index = 54 / 8;
+    uint8_t bit_index = 54 % 8;
+    uint8_t fn_bit = 0x01 << (bit_index);
+    uint8_t test = scan_buff[index] & fn_bit;
+    return scan_buff[index] & fn_bit;
+}
+
 // A function to appley debounce filter
 
 static inline uint32_t debouncefilter()
@@ -459,7 +508,7 @@ static inline uint32_t debouncefilter()
 
     uint8_t scan_output[KEY_NUMBER / 8];
     nrf_delay_us(DEBOUNCE_DELAY);
-        nrf_gpio_pin_set(PL_Pin);
+    nrf_gpio_pin_set(PL_Pin);
 
     APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
     for (int i = 0; i < KEY_NUMBER / 8; i++)
@@ -468,10 +517,8 @@ static inline uint32_t debouncefilter()
         scan_buff[i] = scan_output[i];
     }
 
-        nrf_gpio_pin_clear(PL_Pin);
-
+    nrf_gpio_pin_clear(PL_Pin);
 }
-
 
 inline void remap()
 {
@@ -483,16 +530,27 @@ inline void remap()
     {
         index = i / 8;
         bitIndex = i % 8;
-        // uint8_t temp = 0x01 << i;
-        // uint8_t temp2 = temp & remap_buff;
+
         if (remap_buff[index] & (0x01 << bitIndex))
         {
-            bitIndex = KEY_TABLE[i] % 8;
-            index = KEY_TABLE[i] / 8;
-            if (index < 17)
-                KEYBOARD_Rep_Buff[index] = (0x01 << bitIndex) | KEYBOARD_Rep_Buff[index];
+            if (fn_state() == 0)
+            {
+                bitIndex = KEY_TABLE[0][i] % 8;
+                index = KEY_TABLE[0][i] / 8;
+                if (index < 17)
+                    KEYBOARD_Rep_Buff[index] = (0x01 << bitIndex) | KEYBOARD_Rep_Buff[index];
+                else
+                    CONSUMER_Rep_Buff[1] = (0x01 << bitIndex) | CONSUMER_Rep_Buff[1];
+            }
             else
-                CONSUMER_Rep_Buff[1] = (0x01 << bitIndex) | CONSUMER_Rep_Buff[1];
+            {
+                bitIndex = KEY_TABLE[1][i] % 8;
+                index = KEY_TABLE[1][i] / 8;
+                if (index < 17)
+                    KEYBOARD_Rep_Buff[index] = (0x01 << bitIndex) | KEYBOARD_Rep_Buff[index];
+                else
+                    CONSUMER_Rep_Buff[1] = (0x01 << bitIndex) | CONSUMER_Rep_Buff[1];
+            }
         }
         else
         {
@@ -500,24 +558,29 @@ inline void remap()
         }
     }
 
-    if (KNOB_CCW)
+    if (KNOB_CW)
     {
         CONSUMER_Rep_Buff[1] = CONSUMER_Rep_Buff[1] | 0x01;
-        // KNOB_CW = 0;
-        // KNOB_CCW = 0;
+        // KEYBOARD_Rep_Buff[4] = KEYBOARD_Rep_Buff[4] | 0x01;
+        KNOB_CW = 0;
+        KNOB_CCW = 0;
     }
-    else if (KNOB_CW)
+    else if (KNOB_CCW)
     {
         CONSUMER_Rep_Buff[1] = CONSUMER_Rep_Buff[1] | 0x02;
-        // KNOB_CW = 0;
-        // KNOB_CCW = 0;
+        // KEYBOARD_Rep_Buff[4] = KEYBOARD_Rep_Buff[4] | 0x02;
+        KNOB_CW = 0;
+        KNOB_CCW = 0;
     }
-    KNOB_CW = 0;
-    KNOB_CCW = 0;
+    else
+    {
+        KNOB_CW = 0;
+        KNOB_CCW = 0;
+    }
 }
 
 // Function to scan the key state
-static void scan_key(nrf_timer_event_t event_type, void *p_context)
+static inline void scan_key(nrf_timer_event_t event_type, void *p_context)
 {
     nrf_gpio_pin_set(PL_Pin);
 
@@ -534,6 +597,7 @@ static void scan_key(nrf_timer_event_t event_type, void *p_context)
     // if Keyboard report buff has changed
     if (memcmp(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1))
     {
+        // nrf_delay_ms(2);
         KBD_Send(&m_app_hid_kbd, KEYBOARD_Rep_Buff);
     }
     // else if consumer report buffer has changed
@@ -554,7 +618,9 @@ static void scan_key(nrf_timer_event_t event_type, void *p_context)
 
     memcpy(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
     memcpy(&CONSUMER_Rep_Buff_Prev[1], &CONSUMER_Rep_Buff[1], consumer_rep_byte - 1);
-
+    KNOB_SCAN_EN = 1;
+    KNOB_CCW = 0;
+    KNOB_CW = 0;
     Check_Mode();
 }
 
@@ -580,7 +646,6 @@ void Wire_Mode()
         .ev_state_proc = usbd_user_ev_handler,
     };
 
-    // 禁止后蜂鸣器会一直响，且LED状态不正常
     ret = nrf_drv_clock_init();
     APP_ERROR_CHECK(ret);
 
@@ -597,12 +662,12 @@ void Wire_Mode()
     uint32_t time_ticks;
     uint32_t err_code = NRF_SUCCESS;
     nrfx_timer_config_t timer_cfg = NRFX_TIMER_DEFAULT_CONFIG;
-    timer_cfg.interrupt_priority = 6;
+    timer_cfg.interrupt_priority = 7;
     err_code = nrfx_timer_init(&TIMER_KBD, &timer_cfg, scan_key);
     APP_ERROR_CHECK(err_code);
-    time_ticks = nrfx_timer_us_to_ticks(&TIMER_KBD, 900);
+    time_ticks = nrfx_timer_us_to_ticks(&TIMER_KBD, 800);
     // Set compare, when counter value = time_ticks -> interrupt
-    nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
+    nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL1, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
 
     if (USBD_POWER_DETECTION)
     {
@@ -639,29 +704,29 @@ static void output_present(uint8_t val)
 {
     if ((val & 0x02) != 0)
     {
-        LED_On(LED0);
+        LED_On(CAPSLOCK_PIN);
     }
     else
     {
-        LED_Off(LED0);
+        LED_Off(CAPSLOCK_PIN);
     }
 
     if ((val & 0x01) != 0)
     {
-        LED_On(LED1);
+        LED_On(NUMLOCK_PIN);
     }
     else
     {
-        LED_Off(LED1);
+        LED_Off(NUMLOCK_PIN);
     }
 
     if ((val & 0x04) != 0)
     {
-        LED_On(LED2);
+        LED_On(SCRLOCK_PIN);
     }
     else
     {
-        LED_Off(LED2);
+        LED_Off(SCRLOCK_PIN);
     }
 }
 
@@ -670,7 +735,7 @@ static void output_present(uint8_t val)
  *
  * @return Returns states of buttons.
  */
-void input_get(uint8_t *array)
+static inline void input_get(uint8_t *array)
 {
     memset(array, 0, 17);
     nrf_gpio_pin_set(PL_Pin);
@@ -708,7 +773,7 @@ void input_get(uint8_t *array)
 
     memcpy(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
     memcpy(&CONSUMER_Rep_Buff_Prev[1], &CONSUMER_Rep_Buff[1], consumer_rep_byte - 1);
-
+    KNOB_SCAN_EN = 1;
     Check_Mode();
 }
 
@@ -800,9 +865,9 @@ void nrf_gzll_device_tx_success(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info
 
     if (tx_info.payload_received_in_ack)
     {
+        m_ack_payload[0] = 0;
         // Pop packet and write first byte of the payload to the GPIO port.
-        result_value =
-            nrf_gzll_fetch_packet_from_rx_fifo(pipe, m_ack_payload, &m_ack_payload_length);
+        result_value = nrf_gzll_fetch_packet_from_rx_fifo(pipe, m_ack_payload, &m_ack_payload_length);
         if (!result_value)
         {
             NRF_LOG_ERROR("RX fifo error ");
@@ -812,7 +877,16 @@ void nrf_gzll_device_tx_success(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info
         {
             output_present(m_ack_payload[0]);
         }
+        else
+        {
+            output_present(0);
+        }
     }
+    else
+    {
+        output_present(0);
+    }
+    gzll_disconnect_counter = 0;
 }
 
 /**
@@ -829,11 +903,21 @@ void nrf_gzll_device_tx_failed(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info)
 
     // Load data into TX queue.
     input_get(m_data_payload);
-
     bool result_value = nrf_gzll_add_packet_to_tx_fifo(pipe, m_data_payload, TX_PAYLOAD_LENGTH);
     if (!result_value)
     {
         NRF_LOG_ERROR("TX fifo error ");
+    }
+    if (gzll_disconnect_counter < 50)
+    {
+        gzll_disconnect_counter += 1;
+    }
+    else
+    {
+        m_ack_payload[0] = 0;
+        // LED_Off(CAPSLOCK_PIN);
+        // LED_Off(NUMLOCK_PIN);
+        // LED_Off(SCRLOCK_PIN);
     }
 }
 
@@ -907,6 +991,7 @@ void Wireless_Mode()
     {
         //__WFE();
         ws2812_effect(RGB_LIGHT);
+        // uint8_t test = gzp_get_pairing_status();
     }
 }
 
@@ -935,11 +1020,14 @@ int main(void)
     spi_config.frequency = NRF_SPIM_FREQ_4M;
     nrf_delay_ms(100);
 
+    nrf_gpio_pin_set(PL_Pin);
     APP_ERROR_CHECK(nrfx_spim_init(&scan_spi, &spi_config, NULL, NULL));
 
     // APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
 
-    input_get(m_data_payload);
+    // input_get(m_data_payload);
+    // wake_up_scan(m_data_payload);
+    nrf_gpio_pin_clear(PL_Pin);
 
     ws2812_init(RGB_LIGHT);
     // memset(m_rx_buff, 0, 2);
@@ -973,9 +1061,9 @@ int main(void)
 
     if (Mode == 3)
         Wire_Mode();
-    else if (Mode == 1)
-        Wireless_Mode();
     else if (Mode == 2)
+        Wireless_Mode();
+    else if (Mode == 1)
         BLE_Mode();
     else // error
         NVIC_SystemReset();
