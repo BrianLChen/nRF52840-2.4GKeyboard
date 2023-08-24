@@ -77,12 +77,13 @@
 #define CAPSLOCK_PIN NRF_GPIO_PIN_MAP(0, 13)
 #define NUMLOCK_PIN NRF_GPIO_PIN_MAP(0, 14)
 #define SCRLOCK_PIN NRF_GPIO_PIN_MAP(0, 15)
+#define CHARGE_PIN NRF_GPIO_PIN_MAP(0,16)
 
 /* Gazell Config */
 #define PIPE_NUMBER 1                       /**< Pipe 0 is used in this example. */
 #define TX_PAYLOAD_LENGTH keyboard_rep_byte /**<  */
 #define RX_RECEIVE_LENGTH 1
-#define MAX_TX_ATTEMPTS 5 /**< Maximum number of transmission attempts */
+#define MAX_TX_ATTEMPTS 0 /**< Maximum number of transmission attempts */
 #define Channel_Table_Size 5
 
 /* Mode Detect Pin */
@@ -104,8 +105,8 @@
 #define KNOB_A_PIN NRF_GPIO_PIN_MAP(0, 11)
 #define KNOB_B_PIN NRF_GPIO_PIN_MAP(0, 25)
 // GAZELL
-static uint8_t m_data_payload[TX_PAYLOAD_LENGTH]; /**< Payload to send to Host. */
-static uint8_t m_ack_payload[RX_RECEIVE_LENGTH];  /**< Placeholder for received ACK payloads from Host. */
+static uint8_t m_data_payload[TX_PAYLOAD_LENGTH] = {0}; /**< Payload to send to Host. */
+static uint8_t m_ack_payload[RX_RECEIVE_LENGTH] = {0};  /**< Placeholder for received ACK payloads from Host. */
 uint8_t Channel_Table[Channel_Table_Size] = {4, 25, 42, 63, 77};
 
 // TIMER
@@ -205,6 +206,7 @@ static void kbd_status(void)
         LED_Off(SCRLOCK_PIN);
     }
 }
+
 
 void Pin_Cfg(void)
 {
@@ -314,6 +316,17 @@ static void Enter_Sleep_Mode()
     nrf_pwr_mgmt_shutdown(NRF_PWR_MGMT_SHUTDOWN_GOTO_SYSOFF);
 }
 
+// Add 1 to Sleep counter very 1 second
+static inline void Sleep_Counter(nrf_timer_event_t event_type, void *p_context)
+{
+    Sleep_Time_Out_Counter += 1;
+    if (Sleep_Time_Out_Counter == 180)
+    {
+        Sleep_Time_Out_Counter = 0;
+        Enter_Sleep_Mode();
+    }
+}
+
 /* Initial the Scan Timer */
 void scan_timer_init(void *scan_func)
 {
@@ -333,10 +346,10 @@ void scan_timer_init(void *scan_func)
 /* Knob GPIOTE callback function */
 void KNOB_callback(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
-    nrf_delay_ms(3);
+    //nrf_delay_ms(3);
     // nrf_delay_us(50);
-    if (KNOB_SCAN_EN)
-    {
+    //if (KNOB_SCAN_EN)
+    //{
         uint32_t B_level = nrf_gpio_pin_read(KNOB_B_PIN);
         if (B_level == 0)
         {
@@ -352,29 +365,12 @@ void KNOB_callback(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
         }
         KNOB_SCAN_EN = 0;
         return;
-    }
-    else
-    {
-        KNOB_SCAN_EN = 0;
-        return;
-    }
-    // if (B_level == 0)
+    //}
+    //else
     //{
-    //     KNOB_CW = 1;
-    // }
-    // else
-    //{
-    //     KNOB_CW = 0;
-    // }
-
-    // if (B_level != 0)
-    //{
-    //     KNOB_CCW = 1;
-    // }
-    // else
-    //{
-    //     KNOB_CCW = 0;
-    // }
+    //    KNOB_SCAN_EN = 0;
+    //    return;
+    //}
 }
 
 /* init gpiote for Knob */
@@ -385,7 +381,7 @@ static void knob_init(void)
     err_code = nrfx_gpiote_init();
     APP_ERROR_CHECK(err_code);
 
-    nrfx_gpiote_in_config_t in_config = NRFX_GPIOTE_RAW_CONFIG_IN_SENSE_HITOLO(true);
+    nrfx_gpiote_in_config_t in_config = NRFX_GPIOTE_RAW_CONFIG_IN_SENSE_HITOLO(false);
     // nrfx_gpiote_in_config_t in_config = NRFX_GPIOTE_RAW_CONFIG_IN_SENSE_LOTOHI(true);
 
     in_config.pull = NRF_GPIO_PIN_NOPULL;
@@ -480,16 +476,7 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
     }
 }
 
-// Add 1 to Sleep counter very 1 second
-static inline void Sleep_Counter(nrf_timer_event_t event_type, void *p_context)
-{
-    Sleep_Time_Out_Counter += 1;
-    if (Sleep_Time_Out_Counter == 180)
-    {
-        Sleep_Time_Out_Counter = 0;
-        Enter_Sleep_Mode();
-    }
-}
+
 
 // Check Fn button state
 static inline uint8_t fn_state()
@@ -583,12 +570,12 @@ inline void remap()
 static inline void scan_key(nrf_timer_event_t event_type, void *p_context)
 {
     nrf_gpio_pin_set(PL_Pin);
-
+    //CRITICAL_REGION_ENTER();
     APP_ERROR_CHECK(nrfx_spim_xfer(&scan_spi, &scan_spi_desc, NULL));
     memcpy(scan_buff, m_rx_buff, KEY_NUMBER / 8);
     nrf_gpio_pin_clear(PL_Pin);
 
-    uint32_t a = debouncefilter(100);
+    uint32_t a = debouncefilter();
 
     memset(&KEYBOARD_Rep_Buff[1], 0, keyboard_rep_byte - 1);
     memset(&CONSUMER_Rep_Buff[1], 0, consumer_rep_byte - 1);
@@ -615,12 +602,13 @@ static inline void scan_key(nrf_timer_event_t event_type, void *p_context)
     }
 
     app_usbd_event_queue_process();
-
+    
     memcpy(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
     memcpy(&CONSUMER_Rep_Buff_Prev[1], &CONSUMER_Rep_Buff[1], consumer_rep_byte - 1);
-    KNOB_SCAN_EN = 1;
-    KNOB_CCW = 0;
-    KNOB_CW = 0;
+    //CRITICAL_REGION_EXIT();
+    //KNOB_SCAN_EN = 1;
+    //KNOB_CCW = 0;
+    //KNOB_CW = 0;
     Check_Mode();
 }
 
@@ -744,7 +732,7 @@ static inline void input_get(uint8_t *array)
     memcpy(scan_buff, m_rx_buff, KEY_NUMBER / 8);
     nrf_gpio_pin_clear(PL_Pin);
 
-    uint32_t a = debouncefilter(100);
+    uint32_t a = debouncefilter();
 
     memset(&KEYBOARD_Rep_Buff[1], 0, keyboard_rep_byte - 1);
     memset(&CONSUMER_Rep_Buff[1], 0, consumer_rep_byte - 1);
@@ -773,7 +761,7 @@ static inline void input_get(uint8_t *array)
 
     memcpy(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
     memcpy(&CONSUMER_Rep_Buff_Prev[1], &CONSUMER_Rep_Buff[1], consumer_rep_byte - 1);
-    KNOB_SCAN_EN = 1;
+    //KNOB_SCAN_EN = 1;
     Check_Mode();
 }
 
@@ -850,12 +838,12 @@ static void add_pack()
 void nrf_gzll_device_tx_success(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info)
 {
     bool result_value = false;
-
+    CRITICAL_REGION_ENTER();
     // Load data payload into the TX queue.
     input_get(m_data_payload);
 
     result_value = nrf_gzll_add_packet_to_tx_fifo(pipe, m_data_payload, TX_PAYLOAD_LENGTH);
-
+    CRITICAL_REGION_EXIT();
     if (!result_value)
     {
         NRF_LOG_ERROR("TX fifo error ");
@@ -915,9 +903,7 @@ void nrf_gzll_device_tx_failed(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info)
     else
     {
         m_ack_payload[0] = 0;
-        // LED_Off(CAPSLOCK_PIN);
-        // LED_Off(NUMLOCK_PIN);
-        // LED_Off(SCRLOCK_PIN);
+
     }
 }
 
@@ -951,6 +937,7 @@ void Wireless_Mode()
     bool result_value = nrf_gzll_init(NRF_GZLL_MODE_DEVICE);
     GAZELLE_ERROR_CODE_CHECK(result_value);
     nrf_gzll_set_timeslot_period(600);
+    nrf_gzll_set_tx_power(NRF_GZLL_TX_POWER_0_DBM);
 
     // set base address for pipe1
     result_value = nrf_gzll_set_base_address_1(0xbc010827);
@@ -978,11 +965,12 @@ void Wireless_Mode()
     nrfx_timer_init(&TIMER_SLEEP, &timer_cfg, Sleep_Counter);
     uint32_t time_ticks = nrfx_timer_ms_to_ticks(&TIMER_SLEEP, 1000);
     // Set compare, when counter value = time_ticks -> interrupt
-    nrfx_timer_extended_compare(&TIMER_SLEEP, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
+    nrfx_timer_extended_compare(&TIMER_SLEEP, NRF_TIMER_CC_CHANNEL1, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
 
     // Enable Gazell to start sending over the air.
     result_value = nrf_gzll_enable();
-
+    
+    // Start counter for Sleep
     nrfx_timer_enable(&TIMER_SLEEP);
 
     GAZELLE_ERROR_CODE_CHECK(result_value);
@@ -1010,7 +998,7 @@ int main(void)
     CONSUMER_Rep_Buff_Prev[0] = 0x02;
 
     m_tx_buff[0] = 0x00;
-    m_tx_buff[1] = 0x00;
+    //m_tx_buff[1] = 0x00;
 
     nrfx_spim_config_t spi_config = NRFX_SPI_DEFAULT_CONFIG;
     spi_config.ss_pin = SER_APP_SPIM0_SS_PIN;
