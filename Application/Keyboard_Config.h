@@ -61,6 +61,13 @@ uint8_t KEY_TABLE[LAYER][KEY_NUMBER] ={
     }    
     };
 
-
+//uint8_t KEY_TABLE[LAYER][KEY_NUMBER] ={ 
+//     Default Layer
+//    {KEYBOARD_1
+//    }, 
+//     Fn layer 1
+//    {KEYBOARD_1
+//    }    
+//    };
 
 #endif // KEYBOARD_CONFIG_H;;;
