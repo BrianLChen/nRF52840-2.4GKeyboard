@@ -17,8 +17,11 @@
 蓝牙模式正在研究，因为目前使用的nrf5 SDK没有nrf connect SDK对蓝牙的支持好，打算后面有空了吧所有的换到nrf connect SDK上
 
 ## 使用教程
+### 软件/固件
 把这个文件复制到下载好nrf5 sdk后，在sdk的主目录下创建一个自己的文件夹，把Dongle和Keyboard拷贝进去
 比如，sdk下载后解压出来是在nRF5_SDK_17.1.0_ddde560文件夹里，则Keyboard的应该在nRF5_SDK_17.1.0_ddde560/<user folder>/Keyboard/
+### 硬件/PCB
+硬件稍后开源（嘉立创开源有点用不明白）
 
 ## 已知问题
 天线：位置不合理，导致信号很弱，正在考虑更换模块或者自己设计
