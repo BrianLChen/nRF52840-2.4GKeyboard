@@ -9,7 +9,8 @@
 扫描结构参考 稚晖君 的 瀚文75 所使用的位移寄存器结构。修改使其可以用于唤醒无线模式下休眠的键盘
 
 ### 视频
-【【diy三模无线键盘】开源！低延迟2.4G键盘】 https://www.bilibili.com/video/BV1Ug4y1D7DG/?share_source=copy_web&vd_source=11f3e01e9b6c0d51150e4b6b98536978
+【diy三模无线键盘】开源！低延迟2.4G键盘
+https://www.bilibili.com/video/BV1Ug4y1D7DG/?share_source=copy_web&vd_source=11f3e01e9b6c0d51150e4b6b98536978
 
 ## 进度
 可以使用有线模式和2.4G无线模式进行正常键盘操作。充电管理正常，使用TP4056进行充电，小板上有单独的电池保护芯片。包含充电指示灯，硬件支持电量检测，但是代码没有写
