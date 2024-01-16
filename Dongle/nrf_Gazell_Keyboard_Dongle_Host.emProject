@@ -64,17 +64,93 @@
       <file file_name="../../modules/nrfx/mdk/system_nrf52840.c" />
     </folder>
     <folder Name="nRF_Drivers">
-      <file file_name="../../../Keyboard/Wired/integration/nrfx/legacy/nrf_drv_clock.c" />
-      <file file_name="../../../Keyboard/Wired/integration/nrfx/legacy/nrf_drv_power.c" />
+      <file file_name="../../integration/nrfx/legacy/nrf_drv_clock.c">
+        <configuration Name="Debug" build_exclude_from_build="No" />
+      </file>
+      <file file_name="../../integration/nrfx/legacy/nrf_drv_power.c">
+        <configuration Name="Debug" build_exclude_from_build="No" />
+      </file>
+      <file file_name="../../integration/nrfx/legacy/nrf_drv_ppi.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../integration/nrfx/legacy/nrf_drv_rng.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../integration/nrfx/legacy/nrf_drv_spi.c">
+        <configuration Name="Debug" build_exclude_from_build="No" />
+      </file>
+      <file file_name="../../integration/nrfx/legacy/nrf_drv_spis.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../integration/nrfx/legacy/nrf_drv_swi.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../integration/nrfx/legacy/nrf_drv_twi.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
       <file file_name="../../integration/nrfx/legacy/nrf_drv_uart.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
+      <file file_name="../../components/drivers_nrf/nrf_soc_nosd/nrf_nvic.c" />
+      <file file_name="../../modules/nrfx/hal/nrf_nvmc.c" />
+      <file file_name="../../components/drivers_nrf/nrf_soc_nosd/nrf_soc.c" />
       <file file_name="../../modules/nrfx/soc/nrfx_atomic.c" />
       <file file_name="../../modules/nrfx/drivers/src/nrfx_clock.c" />
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_comp.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
       <file file_name="../../modules/nrfx/drivers/src/nrfx_gpiote.c" />
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_i2s.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_lpcomp.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_pdm.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
       <file file_name="../../modules/nrfx/drivers/src/nrfx_power.c" />
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_ppi.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
       <file file_name="../../modules/nrfx/drivers/src/prs/nrfx_prs.c" />
-      <file file_name="../../modules/nrfx/drivers/src/nrfx_timer.c" />
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_pwm.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_qdec.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_qspi.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_rng.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_rtc.c">
+        <configuration Name="Debug" build_exclude_from_build="No" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_saadc.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_spi.c" />
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_spim.c" />
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_spis.c" />
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_swi.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_systick.c" />
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_timer.c">
+        <configuration Name="Debug" build_exclude_from_build="No" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_twi.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_twim.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_twis.c">
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
+      </file>
       <file file_name="../../modules/nrfx/drivers/src/nrfx_uart.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
@@ -82,6 +158,7 @@
         <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
       <file file_name="../../modules/nrfx/drivers/src/nrfx_usbd.c" />
+      <file file_name="../../modules/nrfx/drivers/src/nrfx_wdt.c" />
     </folder>
     <folder Name="nRF_Libraries">
       <file file_name="../../components/libraries/button/app_button.c" />
