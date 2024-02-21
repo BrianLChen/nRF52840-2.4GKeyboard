@@ -63,7 +63,7 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="5" y="256" useTextEdit="1" path="Application/main.c" left="0" selected="1" top="191" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="49" y="311" useTextEdit="1" path="Application/main.c" left="0" selected="1" top="282" codecName="UTF-8"/>
  </Files>
  <EMStudioWindow activeProject="nrf_Gazell_Keyboard_Dongle_Host" fileDialogDefaultFilter="*" autoConnectTarget="J-Link" buildConfiguration="Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="D:/C_and_C++/nrf_files/components/proprietary_rf/gzll/gcc" debugSearchPath="" autoConnectCapabilities="3199"/>
 </session>
