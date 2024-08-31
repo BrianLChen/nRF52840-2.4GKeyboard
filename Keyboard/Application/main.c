@@ -88,8 +88,8 @@
 
 /* Mode Detect Pin */
 #define WIRE_MODE_PIN NRF_GPIO_PIN_MAP(1, 1)
-#define WIRELESS_MODE_PIN NRF_GPIO_PIN_MAP(1, 2)
-#define BLE_MODE_PIN NRF_GPIO_PIN_MAP(1, 3)
+#define BLE_MODE_PIN NRF_GPIO_PIN_MAP(1, 2)
+#define WIRELESS_MODE_PIN NRF_GPIO_PIN_MAP(1, 3)
 
 /* SPI Scan Pin */
 #define PL_Pin NRF_GPIO_PIN_MAP(1, 11)
@@ -103,8 +103,8 @@
 #define WS2812_SCK_PIN NRF_GPIO_PIN_MAP(1, 14)
 
 /* Knob Pin */
-#define KNOB_B_PIN NRF_GPIO_PIN_MAP(0, 11)
-#define KNOB_A_PIN NRF_GPIO_PIN_MAP(0, 25)
+#define KNOB_A_PIN NRF_GPIO_PIN_MAP(0, 11)
+#define KNOB_B_PIN NRF_GPIO_PIN_MAP(0, 25)
 // GAZELL
 static uint8_t m_data_payload[TX_PAYLOAD_LENGTH] = {0}; /**< Payload to send to Host. */
 static uint8_t m_ack_payload[RX_RECEIVE_LENGTH] = {0};  /**< Placeholder for received ACK payloads from Host. */
@@ -139,7 +139,7 @@ static const ws2812_t RGB_LIGHT = {WS2812_SPI, WS2812_MOSI_PIN, WS2812_SCK_PIN};
 // Other
 uint32_t Sleep_Time_Out_Counter = 0; // counter for sleep time
 uint8_t gzll_disconnect_counter = 0;
-uint8_t Mode; // Mode indicator
+uint8_t Mode; // Mode indicator 1=wire 2=BLE 3=2.4G
 uint8_t KNOB_CW = 0;
 uint8_t KNOB_CCW = 0;
 uint8_t KNOB_SCAN_EN = 1;
@@ -211,7 +211,7 @@ static void kbd_status(void)
 
 void Pin_Cfg(void)
 {
-        nrf_gpio_cfg_output(MOS_CTRL_PIN);
+    nrf_gpio_cfg_output(MOS_CTRL_PIN);
     nrf_gpio_pin_set(MOS_CTRL_PIN);
 
     nrf_gpio_cfg_output(PL_Pin);
@@ -222,9 +222,11 @@ void Pin_Cfg(void)
     nrf_gpio_cfg_output(CAPSLOCK_PIN);
     nrf_gpio_cfg_output(NUMLOCK_PIN);
     nrf_gpio_cfg_output(SCRLOCK_PIN);
+    // nrf_gpio_cfg_output(CHARGE_PIN);
     LED_Off(CAPSLOCK_PIN);
     LED_Off(NUMLOCK_PIN);
     LED_Off(SCRLOCK_PIN);
+    // LED_On(CHARGE_PIN);
 
     nrf_gpio_cfg_input(WIRE_MODE_PIN, NRF_GPIO_PIN_PULLUP);
     nrf_gpio_cfg_input(WIRELESS_MODE_PIN, NRF_GPIO_PIN_PULLUP);
@@ -240,42 +242,11 @@ void Pin_Cfg(void)
     LED_Off(SCRLOCK_PIN);
 }
 
-/* Check Mode switch, if value changes, reset the system */
-void Check_Mode()
+// Callback Function when Mode Switch changes
+void Mode_Change_Callback(void)
 {
-    switch (Mode)
-    {
-    case 1:
-        if (nrf_gpio_pin_read(WIRELESS_MODE_PIN) != 0)
-        {
-            nrf_delay_ms(100);
-            NVIC_SystemReset();
-        }
-        else
-        {
-            return;
-        }
-    case 2:
-        if (nrf_gpio_pin_read(BLE_MODE_PIN) != 0)
-        {
-            nrf_delay_ms(100);
-            NVIC_SystemReset();
-        }
-        else
-        {
-            return;
-        }
-    case 3:
-        if (nrf_gpio_pin_read(WIRE_MODE_PIN) != 0)
-        {
-            nrf_delay_ms(100);
-            NVIC_SystemReset();
-        }
-        else
-        {
-            return;
-        }
-    }
+    nrf_delay_ms(50);
+    NVIC_SystemReset();
 }
 
 // config wake up key before ture into system off mode
@@ -416,6 +387,20 @@ static void knob_init(void)
     nrfx_gpiote_in_event_enable(KNOB_A_PIN, true);
 }
 
+void Mode_Interrupt_Init(void)
+{
+    ret_code_t err_code;
+
+    //err_code = nrfx_gpiote_init();
+    //APP_ERROR_CHECK(err_code);
+    nrfx_gpiote_in_config_t Mode_Int_config = NRFX_GPIOTE_RAW_CONFIG_IN_SENSE_TOGGLE(false);
+
+    Mode_Int_config.pull = NRF_GPIO_PIN_PULLUP;
+    err_code = nrfx_gpiote_in_init(WIRE_MODE_PIN, &Mode_Int_config, Mode_Change_Callback);
+    APP_ERROR_CHECK(err_code);
+    nrfx_gpiote_in_event_enable(WIRE_MODE_PIN, true);
+}
+
 /**
  * @brief Class specific event handler.
  *
@@ -460,16 +445,16 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
         LED_Off(LED0);
         LED_Off(LED1);
         LED_Off(LED2);
-        LED_Off(LED3);
+        // LED_Off(LED3);
         break;
     case APP_USBD_EVT_DRV_RESUME:
         // bsp_board_led_on(LED_USB_START);
-        LED_On(LED3);
+        // LED_On(LED3);
         // kbd_status(); /* Restore LED state - during SUSPEND all LEDS are turned off */
         break;
     case APP_USBD_EVT_STARTED:
         // bsp_board_led_on(LED_USB_START);
-        LED_On(LED3);
+        // LED_On(LED3);
         break;
     case APP_USBD_EVT_STOPPED:
         app_usbd_disable();
@@ -477,7 +462,7 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
         LED_Off(LED0);
         LED_Off(LED1);
         LED_Off(LED2);
-        LED_Off(LED3);
+        // LED_Off(LED3);
         break;
     case APP_USBD_EVT_POWER_DETECTED:
         NRF_LOG_INFO("USB power detected");
@@ -619,7 +604,7 @@ static inline void scan_key(nrf_timer_event_t event_type, void *p_context)
     {
         app_usbd_event_queue_process();
         nrf_gpio_pin_clear(PL_Pin);
-        Check_Mode();
+        //Check_Mode();
         return;
     }
 
@@ -631,7 +616,7 @@ static inline void scan_key(nrf_timer_event_t event_type, void *p_context)
     // KNOB_SCAN_EN = 1;
     // KNOB_CCW = 0;
     // KNOB_CW = 0;
-    Check_Mode();
+    //Check_Mode();
 }
 
 void TXD_blink()
@@ -905,8 +890,7 @@ void nrf_gzll_device_tx_success(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info
         if (m_ack_payload_length > 0)
         {
             output_present(m_ack_payload[0]);
-                gzll_disconnect_counter = 0;
-
+            gzll_disconnect_counter = 0;
         }
         else
         {
@@ -1032,7 +1016,10 @@ void Wireless_Mode()
 // TODO
 void BLE_Mode()
 {
-    Check_Mode();
+    while (1)
+    {
+        //Check_Mode();
+    }
 }
 int main(void)
 {
@@ -1067,7 +1054,7 @@ int main(void)
 
     for (;;)
     {
-        if (nrf_gpio_pin_read(WIRELESS_MODE_PIN) == 0)
+        if (nrf_gpio_pin_read(WIRE_MODE_PIN) == 0)
         {
             Mode = 1;
             break;
@@ -1077,7 +1064,7 @@ int main(void)
             Mode = 2;
             break;
         }
-        else if (nrf_gpio_pin_read(WIRE_MODE_PIN) == 0)
+        else if (nrf_gpio_pin_read(WIRELESS_MODE_PIN) == 0)
         {
             Mode = 3;
             break;
@@ -1089,13 +1076,14 @@ int main(void)
     }
 
     // uint32_t mode = nrf_gpio_pin_read(Mode_Pin);
+    Mode_Interrupt_Init();
 
     if (Mode == 3)
-        Wire_Mode();
-    else if (Mode == 2)
         Wireless_Mode();
-    else if (Mode == 1)
+    else if (Mode == 2)
         BLE_Mode();
+    else if (Mode == 1)
+        Wire_Mode();
     else // error
         NVIC_SystemReset();
 }
