@@ -762,14 +762,14 @@ static inline void input_get(uint8_t *array)
     else
     {
         nrf_gpio_pin_clear(PL_Pin);
-        Check_Mode();
+        //Check_Mode();
         return;
     }
 
     memcpy(&KEYBOARD_Rep_Buff_Prev[1], &KEYBOARD_Rep_Buff[1], keyboard_rep_byte - 1);
     memcpy(&CONSUMER_Rep_Buff_Prev[1], &CONSUMER_Rep_Buff[1], consumer_rep_byte - 1);
     // KNOB_SCAN_EN = 1;
-    Check_Mode();
+    //Check_Mode();
 }
 
 void init_scan()
@@ -827,7 +827,7 @@ void init_scan()
     // if none of the report buffers are change
     else
     {
-        Check_Mode();
+        //Check_Mode();
         return;
     }
 
