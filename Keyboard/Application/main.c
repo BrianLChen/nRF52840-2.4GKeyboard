@@ -243,7 +243,7 @@ void Pin_Cfg(void)
 }
 
 // Callback Function when Mode Switch changes
-void Mode_Change_Callback(void)
+void Mode_Change_Callback(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
     nrf_delay_ms(50);
     NVIC_SystemReset();
@@ -619,16 +619,16 @@ static inline void scan_key(nrf_timer_event_t event_type, void *p_context)
     //Check_Mode();
 }
 
-void TXD_blink()
-{
-    for (;;)
-    {
-        nrf_gpio_pin_clear(TX_PIN_NUMBER);
-        nrf_delay_ms(1000);
-        nrf_gpio_pin_set(TX_PIN_NUMBER);
-        nrf_delay_ms(1000);
-    }
-}
+//void TXD_blink()
+//{
+//    for (;;)
+//    {
+//        nrf_gpio_pin_clear(TX_PIN_NUMBER);
+//        nrf_delay_ms(1000);
+//        nrf_gpio_pin_set(TX_PIN_NUMBER);
+//        nrf_delay_ms(1000);
+//    }
+//}
 
 // Function to init Wire Mode Keyboard
 void Wire_Mode()
@@ -924,7 +924,7 @@ void nrf_gzll_device_tx_failed(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info)
     }
 }
 
-void nrf_gzll_tx_timeout(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info)
+void nrf_gzll_tx_timeout(uint32_t pipe, uint8_t tx_info)
 {
     if (gzll_disconnect_counter == 20)
     {
@@ -963,7 +963,7 @@ void Wireless_Mode()
     // Initialize Gazell.
     bool result_value = nrf_gzll_init(NRF_GZLL_MODE_DEVICE);
     GAZELLE_ERROR_CODE_CHECK(result_value);
-    nrf_gzll_tx_timeout_callback_register(&nrf_gzll_tx_timeout);
+    nrf_gzll_tx_timeout_callback_register(nrf_gzll_tx_timeout);
     nrf_gzll_set_timeslot_period(600);
     nrf_gzll_set_tx_power(NRF_GZLL_TX_POWER_0_DBM);
 
