@@ -27,6 +27,13 @@
 硬件稍后开源（嘉立创开源有点用不明白）
 https://oshwhub.com/brianchen/jian-pan-cheng-pin
 
+### 按键布局修改
+在Keyboard/Application/Keyboard_Config.h中定义了键盘矩阵的顺序。顺序是按照PCB的按键顺序。目前定义了两层一层默认，另一层Fn。
+
+如果需要修改Fn键的位置，请修改Fn_Position到需要的位置
+
+此文件还可以修改消抖时间，总按键个数
+
 ## 已知问题
 天线：位置不合理，导致信号很弱，正在考虑更换模块或者自己设计
 
