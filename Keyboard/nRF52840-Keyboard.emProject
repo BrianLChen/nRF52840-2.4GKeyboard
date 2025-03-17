@@ -181,7 +181,9 @@
       <file file_name="../../components/drivers_nrf/nrf_soc_nosd/nrf_nvic.c" />
       <file file_name="../../modules/nrfx/hal/nrf_nvmc.c" />
       <file file_name="../../components/drivers_nrf/nrf_soc_nosd/nrf_soc.c" />
-      <file file_name="../../modules/nrfx/soc/nrfx_atomic.c" />
+      <file file_name="../../modules/nrfx/soc/nrfx_atomic.c">
+        <configuration Name="Debug" build_exclude_from_build="No" />
+      </file>
       <file file_name="../../modules/nrfx/drivers/src/nrfx_clock.c" />
       <file file_name="../../modules/nrfx/drivers/src/nrfx_comp.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />
@@ -267,7 +269,7 @@
       <file file_name="../../components/libraries/gpiote/app_gpiote.c" />
       <file file_name="../../components/libraries/pwm/app_pwm.c" />
       <file file_name="../../components/libraries/scheduler/app_scheduler.c">
-        <configuration Name="Debug" build_exclude_from_build="No" />
+        <configuration Name="Debug" build_exclude_from_build="Yes" />
       </file>
       <file file_name="../../components/libraries/sdcard/app_sdcard.c">
         <configuration Name="Debug" build_exclude_from_build="Yes" />

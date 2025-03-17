@@ -183,29 +183,31 @@ static void kbd_status(void)
 {
     if (app_usbd_hid_kbd_led_state_get(&m_app_hid_kbd, APP_USBD_HID_KBD_LED_NUM_LOCK))
     {
-        LED_On(NUMLOCK_PIN);
+        // LED_On(NUMLOCK_PIN);
+        nrf_gpio_pin_clear(NUMLOCK_PIN);
     }
     else
     {
-        LED_Off(NUMLOCK_PIN);
+        // LED_Off(NUMLOCK_PIN);
+        nrf_gpio_pin_set(NUMLOCK_PIN);
     }
 
     if (app_usbd_hid_kbd_led_state_get(&m_app_hid_kbd, APP_USBD_HID_KBD_LED_CAPS_LOCK))
     {
-        LED_On(CAPSLOCK_PIN);
+        nrf_gpio_pin_clear(CAPSLOCK_PIN);
     }
     else
     {
-        LED_Off(CAPSLOCK_PIN);
+        nrf_gpio_pin_set(CAPSLOCK_PIN);
     }
 
     if (app_usbd_hid_kbd_led_state_get(&m_app_hid_kbd, APP_USBD_HID_KBD_LED_SCROLL_LOCK))
     {
-        LED_On(SCRLOCK_PIN);
+        nrf_gpio_pin_clear(SCRLOCK_PIN);
     }
     else
     {
-        LED_Off(SCRLOCK_PIN);
+        nrf_gpio_pin_set(SCRLOCK_PIN);
     }
 }
 
@@ -604,7 +606,6 @@ static inline void scan_key(nrf_timer_event_t event_type, void *p_context)
     {
         app_usbd_event_queue_process();
         nrf_gpio_pin_clear(PL_Pin);
-        //Check_Mode();
         return;
     }
 
@@ -616,7 +617,6 @@ static inline void scan_key(nrf_timer_event_t event_type, void *p_context)
     // KNOB_SCAN_EN = 1;
     // KNOB_CCW = 0;
     // KNOB_CW = 0;
-    //Check_Mode();
 }
 
 //void TXD_blink()

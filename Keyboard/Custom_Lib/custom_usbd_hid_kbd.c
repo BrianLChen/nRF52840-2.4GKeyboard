@@ -599,8 +599,8 @@ ret_code_t hid_kbd_on_set_protocol(app_usbd_hid_kbd_t const *p_kbd, app_usbd_hid
 
 static ret_code_t hid_kbd_on_idle(app_usbd_class_inst_t const *p_inst, uint8_t report_id)
 {
-    // UNUSED_PARAMETER(report_id);
-    report_id = 0x01;
+     UNUSED_PARAMETER(report_id);
+    //report_id = 0x01;
     app_usbd_hid_kbd_t const *p_kbd = (app_usbd_hid_kbd_t const *)p_inst;
     app_usbd_hid_kbd_ctx_t *p_kbd_ctx = hid_kbd_ctx_get(p_kbd);
     nrf_drv_usbd_ep_t ep_addr = app_usbd_hid_epin_addr_get(p_inst);
@@ -624,6 +624,8 @@ static ret_code_t hid_kbd_on_idle(app_usbd_class_inst_t const *p_inst, uint8_t r
 
 ret_code_t KBD_Send(app_usbd_hid_kbd_t const *p_kbd, uint8_t *rep_buff)
 {
+    ret_code_t ret = 0;
+
     app_usbd_class_inst_t const *p_inst = (app_usbd_class_inst_t const *)p_kbd;
     app_usbd_hid_kbd_ctx_t *p_kbd_ctx = hid_kbd_ctx_get(p_kbd);
 
@@ -631,17 +633,20 @@ ret_code_t KBD_Send(app_usbd_hid_kbd_t const *p_kbd, uint8_t *rep_buff)
 
     app_usbd_hid_state_flag_clr(&p_kbd_ctx->hid_ctx, APP_USBD_HID_STATE_FLAG_TRANS_IN_PROGRESS);
 
-    NRF_DRV_USBD_TRANSFER_IN(transfer, rep_buff, keyboard_rep_byte);
-
-    ret_code_t ret;
-    CRITICAL_REGION_ENTER();
-    ret = app_usbd_ep_transfer(ep_addr, &transfer);
-    if (ret == NRF_SUCCESS)
+    if (app_usbd_hid_trans_required(&p_kbd_ctx->hid_ctx))
     {
-        app_usbd_hid_state_flag_set(&p_kbd_ctx->hid_ctx, APP_USBD_HID_STATE_FLAG_TRANS_IN_PROGRESS);
-    }
-    CRITICAL_REGION_EXIT();
+        CRITICAL_REGION_ENTER();
 
+        NRF_DRV_USBD_TRANSFER_IN(transfer, rep_buff, keyboard_rep_byte);
+
+        //CRITICAL_REGION_ENTER();
+        ret = app_usbd_ep_transfer(ep_addr, &transfer);
+        if (ret == NRF_SUCCESS)
+        {
+            app_usbd_hid_state_flag_set(&p_kbd_ctx->hid_ctx, APP_USBD_HID_STATE_FLAG_TRANS_IN_PROGRESS);
+        }
+        CRITICAL_REGION_EXIT();
+    }
     return ret;
 }
 
@@ -649,6 +654,11 @@ uint8_t custom_LED_state_get(app_usbd_hid_kbd_t const *p_kbd)
 {
     app_usbd_hid_kbd_ctx_t *p_kbd_ctx = hid_kbd_ctx_get(p_kbd);
     return (p_kbd_ctx->leds_state);
+}
+void custom_LED_state_off(app_usbd_hid_kbd_t const *p_kbd)
+{
+    app_usbd_hid_kbd_ctx_t *p_kbd_ctx = hid_kbd_ctx_get(p_kbd);
+    p_kbd_ctx->leds_state = 0;
 }
 
 ret_code_t Dongle_send(app_usbd_hid_kbd_t const *p_kbd, uint8_t *key_code)

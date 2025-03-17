@@ -130,7 +130,7 @@ extern "C"
         KEYBOARD_BACKSPACE = 42 + 16,       /**<KBD_BACKSPACE       code*/
         KEYBOARD_TAB = 43 + 16,             /**<KBD_TAB             code*/
         KEYBOARD_SPACEBAR = 44 + 16,        /**<KBD_SPACEBAR        code*/
-        KEYBOARD_UNDERSCORE = 45 + 16,      /**<KBD_UNDERSCORE      code*/
+        KEYBOARD_MINUS = 45 + 16,           /**<KBD_MINUS           code*/
         KEYBOARD_PLUS = 46 + 16,            /**<KBD_PLUS            code*/
         KEYBOARD_OPEN_BRACKET = 47 + 16,    /**<KBD_OPEN_BRACKET    code*/
         KEYBOARD_CLOSE_BRACKET = 48 + 16,   /**<KBD_CLOSE_BRACKET   code*/
@@ -138,7 +138,7 @@ extern "C"
         KEYBOARD_NONE_US = 50 + 16,         /**<KBD_ASH             code*/
         KEYBOARD_SEMI_COLON = 51 + 16,      /**<KBD_COLON           code*/
         KEYBOARD_QUOTE = 52 + 16,           /**<KBD_QUOTE           code*/
-        KEYBOARD_GRAVE_ACCENT = 53 + 16,    /**<KBD_TILDE           code*/
+        KEYBOARD_TILDE = 53 + 16,           /**<KBD_TILDE           code*/
         KEYBOARD_COMMA = 54 + 16,           /**<KBD_COMMA           code*/
         KEYBOARD_PERIOD = 55 + 16,          /**<KBD_DOT             code*/
         KEYBOARD_SLASH = 56 + 16,           /**<KBD_SLASH           code*/
@@ -406,6 +406,7 @@ APP_USBD_CLASS_TYPEDEF(app_usbd_hid_kbd,
     ret_code_t custom_key_press(app_usbd_hid_kbd_t const *p_kbd, custom_key_codes_t _key, bool press);
     ret_code_t custom_media_press(app_usbd_hid_kbd_t const *p_kbd, uint8_t _key, bool press);
     uint8_t custom_LED_state_get(app_usbd_hid_kbd_t const * p_kbd);
+    void custom_LED_state_off(app_usbd_hid_kbd_t const *p_kbd);
     ret_code_t buffer_clear(app_usbd_hid_kbd_t const *p_kbd, uint8_t report_id);
     ret_code_t send(app_usbd_hid_kbd_t const *p_kbd);
     
