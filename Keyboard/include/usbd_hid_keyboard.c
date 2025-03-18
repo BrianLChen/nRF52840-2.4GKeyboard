@@ -41,7 +41,7 @@
 #if NRF_MODULE_ENABLED(USBD_HID_KEYBOARD)
 
 #include <string.h>
-#include usbd_hid_keyboard.h"
+#include "usbd_hid_keyboard.h"
 #include "app_util_platform.h"
 
 /**
