@@ -3,3 +3,4 @@
 *.jlink
 
 **/debug/
+**/.vscode

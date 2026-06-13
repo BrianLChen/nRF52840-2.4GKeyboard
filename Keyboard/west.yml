@@ -1,0 +1,15 @@
+manifest:
+  remotes:
+    - name: zephyrproject
+      url-base: https://github.com/zephyrproject-rtos
+
+  projects:
+    - name: zephyr
+      repo-path: zephyr
+      remote: zephyrproject
+      revision: v4.4.1
+      import:
+        path-prefix: deps
+
+  self:
+    path: applications/KBD_NRF52840

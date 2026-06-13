@@ -1,0 +1,49 @@
+# Zephyr build outputs
+build/
+build-*/
+out/
+twister-out/
+
+# West workspace metadata and downloaded dependencies
+.west/
+zephyr/
+modules/
+bootloader/
+tools/
+deps/
+
+# Generated firmware and debug artifacts
+*.bin
+*.elf
+*.hex
+*.uf2
+*.map
+*.lst
+*.dis
+*.stat
+*.meta
+*.signed
+*.merged.hex
+
+# CMake/Ninja generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+build.ninja
+.ninja_deps
+.ninja_log
+
+# Local editor and OS files
+.vscode/
+.idea/
+*.code-workspace
+Thumbs.db
+Desktop.ini
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*~
