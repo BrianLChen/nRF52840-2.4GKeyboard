@@ -1,0 +1,22 @@
+/*
+ * Copyright (c) 2023 Nordic Semiconductor ASA
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "../Lib/inc/kbd_define.h"
+
+/ {
+	hid_dev_0: hid_dev_0 {
+		compatible = "zephyr,hid-device";
+		label = "HID0";
+		protocol-code = "keyboard";
+		in-report-size = <64>;
+		in-polling-period-us = <KBD_HID_REPORT_POLLING_PERIOD_US>;
+		/*
+		 * Leave interrupt OUT disabled. Keyboard LED output reports are
+		 * cached from the control endpoint SET_REPORT path and returned
+		 * to the keyboard in the GZLL ACK payload.
+		 */
+	};
+};
