@@ -662,7 +662,7 @@ void Wire_Mode()
     APP_ERROR_CHECK(err_code);
     time_ticks = nrfx_timer_us_to_ticks(&TIMER_KBD, 800);
     // Set compare, when counter value = time_ticks -> interrupt
-    nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL1, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
+    nrfx_timer_extended_compare(&TIMER_KBD, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
 
     if (USBD_POWER_DETECTION)
     {
