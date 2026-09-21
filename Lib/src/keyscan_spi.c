@@ -23,9 +23,17 @@ static const struct spi_config scan_spi_cfg = {
 	.frequency = 4000000U,
 	.operation = SPI_WORD_SET(8) | SPI_TRANSFER_MSB | SPI_OP_MODE_MASTER,
 	.slave = 0,
+	/* The SPI driver asserts CE# for the entire shift-register transfer. */
+	.cs = {
+		.gpio = GPIO_DT_SPEC_GET_BY_IDX(KEYSCAN_SPI_NODE, cs_gpios, 0),
+		.delay = 1U,
+		.cs_is_gpio = true,
+	},
 };
 
 static uint8_t tx_buf[1];
+/* Keep physical MISO levels separate from the normalized pressed bitmap. */
+static uint8_t scan_raw[KEYSCAN_SCAN_BYTES];
 static uint8_t scan_state[KEYSCAN_SCAN_BYTES];
 static uint8_t prev_scan_state[KEYSCAN_SCAN_BYTES];
 
@@ -55,6 +63,12 @@ int keyscan_init(void)
 		return -ENODEV;
 	}
 
+	if (!gpio_is_ready_dt(&scan_spi_cfg.cs.gpio)) {
+		LOG_ERR("Shift-register CE GPIO device is not ready");
+		return -ENODEV;
+	}
+	/* Controller initialization configures cs-gpios as inactive (CE# high). */
+
 	ret = gpio_pin_configure_dt(&scan_load, GPIO_OUTPUT_INACTIVE);
 	if (ret != 0) {
 		LOG_ERR("Failed to configure shift-register load pin, %d", ret);
@@ -81,8 +95,8 @@ int keyscan_read(void)
 		.len = sizeof(tx_buf),
 	};
 	const struct spi_buf rx = {
-		.buf = scan_state,
-		.len = sizeof(scan_state),
+		.buf = scan_raw,
+		.len = sizeof(scan_raw),
 	};
 	const struct spi_buf_set tx_set = {
 		.buffers = &tx,
@@ -93,16 +107,41 @@ int keyscan_read(void)
 		.count = 1,
 	};
 	int ret;
+	int load_ret;
 
-	gpio_pin_set_dt(&scan_load, 1);
+	/*
+	 * PL goes high to hold the loaded inputs. spi_transceive() then drives
+	 * CE# low, clocks all bytes, and returns CE# high before PL goes low.
+	 */
+	ret = gpio_pin_set_dt(&scan_load, 1);
+	if (ret != 0) {
+		return ret;
+	}
 	ret = spi_transceive(scan_spi, &scan_spi_cfg, &tx_set, &rx_set);
-	gpio_pin_set_dt(&scan_load, 0);
-
-	if (ret == 0) {
-		keyscan_update_key_states();
+	load_ret = gpio_pin_set_dt(&scan_load, 0);
+	if (ret != 0 || load_ret != 0) {
+		return ret != 0 ? ret : load_ret;
 	}
 
-	return ret;
+	/* Original nRF5 debounce inverted RX: raw 0 = pressed, raw 1 = released. */
+	for (size_t i = 0; i < sizeof(scan_state); i++) {
+		scan_state[i] = (uint8_t)~scan_raw[i];
+	}
+	keyscan_update_key_states();
+
+#ifdef KBD_ENABLE_SCAN_TRACE
+	/* Sample at 4 Hz instead of flooding RTT at the 1 kHz scan rate. */
+	static bool trace_started;
+	static uint32_t last_trace_ms;
+	uint32_t now = k_uptime_get_32();
+	if (!trace_started || (uint32_t)(now - last_trace_ms) >= 250U) {
+		trace_started = true;
+		last_trace_ms = now;
+		LOG_HEXDUMP_INF(scan_raw, sizeof(scan_raw), "Scan RAW (0 = pressed)");
+		LOG_HEXDUMP_INF(scan_state, sizeof(scan_state), "Scan PRESSED (1 = pressed)");
+	}
+#endif
+	return 0;
 }
 
 void keyscan_log_changes(void)

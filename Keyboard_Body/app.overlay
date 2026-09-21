@@ -6,21 +6,39 @@
 
 #include <zephyr/dt-bindings/pinctrl/nrf-pinctrl.h>
 #include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
 #include "../Lib/inc/kbd_define.h"
 
 / {
 	aliases {
 		keyscan-spi = &spi0;
+		kbd-knob = &kbd_knob;
 
 		/*
-		 * Keyboard status LEDs.
-		 *
-		 * TODO: Replace these aliases with the real keyboard LED nodes
-		 * when moving away from the nRF52840 DK LEDs.
+		 * Original PCB wiring, all active-low (same pins as DK LED nodes):
+		 * NumLock=P0.14, CapsLock=P0.13, ScrollLock=P0.15.
+		 * P0.16 is reserved for charge indication and is not a HID LED.
+		 * Adjust aliases/polarity when targeting a different PCB.
 		 */
-		kbd-led-numlock = &led0;
-		kbd-led-capslock = &led1;
+		kbd-led-numlock = &led1;
+		kbd-led-capslock = &led0;
 		kbd-led-scrolllock = &led2;
+	};
+
+	/* DK button0/button3 share the real encoder's A/B pins. */
+	buttons {
+		status = "disabled";
+	};
+
+	kbd_knob: kbd-knob {
+		compatible = "gpio-qdec";
+		/* Original BSP: A=P0.11, B=P0.25, externally biased. */
+		gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>,
+			<&gpio0 25 GPIO_ACTIVE_HIGH>;
+		steps-per-period = <KBD_KNOB_STEPS_PER_PERIOD>;
+		sample-time-us = <KBD_KNOB_SAMPLE_PERIOD_US>;
+		idle-timeout-ms = <100>;
+		zephyr,axis = <INPUT_REL_WHEEL>;
 	};
 
 	hid_dev_0: hid_dev_0 {
@@ -36,6 +54,10 @@
 	};
 
 	zephyr,user {
+		/* Original board MOS control: drive P1.05 high before scanning.
+		 * Adjust the pin/polarity here for a different board.
+		 */
+		kbd-power-gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
 		keyscan-load-gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
 		mode-wire-gpios = <&gpio1 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 		mode-ble-gpios = <&gpio1 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
@@ -45,23 +67,29 @@
 
 &spi0 {
 	status = "okay";
+	/* 74HC165 CE#: original SER_APP_SPIM0_SS_PIN = P1.13.
+	 * Low enables shifting; high inhibits it. Update here for other boards.
+	 * keyscan-spi above selects this controller and its CS index 0.
+	 */
+	cs-gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
 	pinctrl-0 = <&kbd_scan_spi0_default>;
 	pinctrl-1 = <&kbd_scan_spi0_sleep>;
 	pinctrl-names = "default", "sleep";
 };
 
 &pinctrl {
+	/* Original BSP wiring: SCK = P0.27, SCAN_OUT (MISO) = P0.26. */
 	kbd_scan_spi0_default: kbd_scan_spi0_default {
 		group1 {
 			psels = <NRF_PSEL(SPIM_SCK, 0, 27)>,
-				<NRF_PSEL(SPIM_MISO, 0, 29)>;
+				<NRF_PSEL(SPIM_MISO, 0, 26)>;
 		};
 	};
 
 	kbd_scan_spi0_sleep: kbd_scan_spi0_sleep {
 		group1 {
 			psels = <NRF_PSEL(SPIM_SCK, 0, 27)>,
-				<NRF_PSEL(SPIM_MISO, 0, 29)>;
+				<NRF_PSEL(SPIM_MISO, 0, 26)>;
 			low-power-enable;
 		};
 	};

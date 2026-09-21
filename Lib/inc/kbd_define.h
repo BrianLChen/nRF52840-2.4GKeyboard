@@ -23,6 +23,10 @@
 #define KBD_DEBOUNCE_COUNTER_THRESHOLD \
 	(KBD_DEBOUNCE_TIME_US / KBD_SCAN_PERIOD_US)
 
+/* Four A/B transitions per electrical cycle, matching one old A falling edge. */
+#define KBD_KNOB_STEPS_PER_PERIOD 4
+#define KBD_KNOB_SAMPLE_PERIOD_US 250
+
 /*
  * Define KBD_ENABLE_LOG in the build when firmware logs are needed.
  * Without it, project module logs are compiled out.

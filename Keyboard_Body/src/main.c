@@ -10,7 +10,6 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
-#include <zephyr/input/input.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
 
@@ -26,6 +25,7 @@
 #include <key_state.h>
 #include <keymap.h>
 #include <keyscan_spi.h>
+#include <knob.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main, KBD_LOG_LEVEL);
 
@@ -56,18 +56,15 @@ enum keyboard_mode
 
 #define KBD_USER_NODE DT_PATH(zephyr_user)
 
+static const struct gpio_dt_spec kbd_power =
+    GPIO_DT_SPEC_GET(KBD_USER_NODE, kbd_power_gpios);
+
 static const struct gpio_dt_spec mode_wire =
     GPIO_DT_SPEC_GET(KBD_USER_NODE, mode_wire_gpios);
 static const struct gpio_dt_spec mode_ble =
     GPIO_DT_SPEC_GET(KBD_USER_NODE, mode_ble_gpios);
 static const struct gpio_dt_spec mode_wireless =
     GPIO_DT_SPEC_GET(KBD_USER_NODE, mode_wireless_gpios);
-
-struct kb_event
-{
-    uint16_t code;
-    int32_t value;
-};
 
 /*
  * Gazell callbacks should stay small. They run from the radio/Gazell context,
@@ -81,7 +78,6 @@ struct gzll_tx_result
     nrf_gzll_device_tx_info_t info;
 };
 
-K_MSGQ_DEFINE(kb_msgq, sizeof(struct kb_event), 2, 1);
 K_SEM_DEFINE(scan_sem, 0, 1);
 K_MSGQ_DEFINE(gzll_tx_msgq, sizeof(struct gzll_tx_result), 2, sizeof(uint32_t));
 
@@ -140,6 +136,30 @@ static void keyboard_report_init(void)
     consumer_report[0] = KBD_HID_REPORT_ID_CONSUMER;
     keyboard_report_prev[0] = KBD_HID_REPORT_ID_KEYBOARD;
     consumer_report_prev[0] = KBD_HID_REPORT_ID_CONSUMER;
+}
+
+/* All transports share the same active-low status LED GPIOs. */
+static int keyboard_leds_init(void)
+{
+    for (unsigned int i = 0; i < ARRAY_SIZE(kb_leds); i++)
+    {
+        if (kb_leds[i].port == NULL)
+        {
+            continue;
+        }
+        if (!gpio_is_ready_dt(&kb_leds[i]))
+        {
+            LOG_ERR("LED device %s is not ready", kb_leds[i].port->name);
+            return -ENODEV;
+        }
+        int ret = gpio_pin_configure_dt(&kb_leds[i], GPIO_OUTPUT_INACTIVE);
+        if (ret != 0)
+        {
+            LOG_ERR("Failed to configure LED %u, %d", i, ret);
+            return ret;
+        }
+    }
+    return 0;
 }
 
 static void keyboard_leds_set_state(uint8_t led_state)
@@ -203,49 +223,6 @@ static int keyboard_leds_set_report(const uint8_t id, const uint16_t len,
     keyboard_leds_set_state(keyboard_led_state);
 
     return 0;
-}
-
-static void keyboard_report_set_usage(uint16_t usage, bool pressed)
-{
-    uint16_t bit;
-    uint8_t mask;
-
-    /*
-     * HID modifier usages live in byte 1. Normal keyboard usages are stored in
-     * the NKRO bitmap after KBD_HID_KEYBOARD_BITMAP_BIT_OFFSET.
-     */
-    if (usage >= 0xe0 && usage <= 0xe7)
-    {
-        mask = BIT(usage - 0xe0);
-        if (pressed)
-        {
-            keyboard_report[1] |= mask;
-        }
-        else
-        {
-            keyboard_report[1] &= ~mask;
-        }
-
-        return;
-    }
-
-    if (usage > KBD_HID_KEYBOARD_USAGE_MAX)
-    {
-        LOG_WRN("Keyboard usage 0x%02x is outside NKRO bitmap", usage);
-        return;
-    }
-
-    bit = usage + KBD_HID_KEYBOARD_BITMAP_BIT_OFFSET;
-    mask = BIT(bit % 8U);
-
-    if (pressed)
-    {
-        keyboard_report[bit / 8U] |= mask;
-    }
-    else
-    {
-        keyboard_report[bit / 8U] &= ~mask;
-    }
 }
 
 static void keyboard_report_set_code(uint16_t code)
@@ -597,6 +574,7 @@ static void wireless_submit_keymap_reports(void)
     int ret;
 
     keyboard_report_build_from_keymap();
+    consumer_report[1] = knob_report_apply(consumer_report[1]);
 
     if (memcmp(keyboard_report_prev, keyboard_report,
                sizeof(keyboard_report_prev)) != 0)
@@ -619,11 +597,12 @@ static void wireless_submit_keymap_reports(void)
         {
             memcpy(consumer_report_prev, consumer_report,
                    sizeof(consumer_report_prev));
+            knob_report_sent(consumer_report[1]);
         }
     }
 }
 
-static void keyboard_submit_report(const struct device *hid_dev,
+static int keyboard_submit_report(const struct device *hid_dev,
                                    struct usbd_context *sample_usbd,
                                    const uint8_t *report,
                                    size_t report_size,
@@ -633,18 +612,16 @@ static void keyboard_submit_report(const struct device *hid_dev,
 
     if (!kb_ready)
     {
-        LOG_INF("USB HID device is not ready");
-        return;
+        return -EAGAIN;
     }
 
     /*
      * If the host suspended USB, only a key press should request remote wake.
-     * Release-only reports are dropped while suspended.
+     * Reports remain pending until USB resumes.
      */
-    if (IS_ENABLED(CONFIG_SAMPLE_USBD_REMOTE_WAKEUP) &&
-        usbd_is_suspended(sample_usbd))
+    if (usbd_is_suspended(sample_usbd))
     {
-        if (wake_on_press)
+        if (IS_ENABLED(CONFIG_SAMPLE_USBD_REMOTE_WAKEUP) && wake_on_press)
         {
             ret = usbd_wakeup_request(sample_usbd);
             if (ret)
@@ -652,7 +629,7 @@ static void keyboard_submit_report(const struct device *hid_dev,
                 LOG_ERR("Remote wakeup error, %d", ret);
             }
         }
-        return;
+        return -EAGAIN;
     }
 
     LOG_DBG("Main thread: USB report");
@@ -662,79 +639,55 @@ static void keyboard_submit_report(const struct device *hid_dev,
     {
         LOG_ERR("HID submit report error, %d", ret);
     }
+    return ret;
 }
 
 static void keyboard_submit_keymap_reports(const struct device *hid_dev,
                                            struct usbd_context *sample_usbd)
 {
+    bool wake_on_press = false;
+    int ret;
+
     keyboard_report_build_from_keymap();
+    consumer_report[1] = knob_report_apply(consumer_report[1]);
+
+    for (size_t i = 1; i < sizeof(keyboard_report); i++)
+    {
+        wake_on_press |= keyboard_report[i] != 0U;
+    }
 
     /*
      * Submit only changed reports. Keyboard and consumer reports are tracked
      * separately, so a media-key change does not resend the full NKRO report.
+     * Advance the sent snapshot only on success; retry on subsequent ticks.
      */
     if (memcmp(keyboard_report_prev, keyboard_report,
                sizeof(keyboard_report_prev)) != 0)
     {
-        keyboard_submit_report(hid_dev, sample_usbd,
+        ret = keyboard_submit_report(hid_dev, sample_usbd,
                                keyboard_report,
                                KBD_HID_KEYBOARD_REPORT_BYTES,
-                               keyboard_report[1] != 0U);
-        memcpy(keyboard_report_prev, keyboard_report,
-               sizeof(keyboard_report_prev));
+                               wake_on_press);
+        if (ret == 0)
+        {
+            memcpy(keyboard_report_prev, keyboard_report,
+                   sizeof(keyboard_report_prev));
+        }
     }
 
     if (memcmp(consumer_report_prev, consumer_report,
                sizeof(consumer_report_prev)) != 0)
     {
-        keyboard_submit_report(hid_dev, sample_usbd,
+        ret = keyboard_submit_report(hid_dev, sample_usbd,
                                consumer_report,
                                KBD_HID_CONSUMER_REPORT_BYTES,
                                consumer_report[1] != 0U);
-        memcpy(consumer_report_prev, consumer_report,
-               sizeof(consumer_report_prev));
-    }
-}
-
-static void keyboard_process_input_events(const struct device *hid_dev,
-                                          struct usbd_context *sample_usbd)
-{
-    struct kb_event kb_evt;
-
-    /*
-     * This path is left from Zephyr's input sample behavior. Matrix-scanned
-     * keys use keymap/debounce above; input events can still be useful during
-     * bring-up for board buttons or temporary test keys.
-     */
-    while (k_msgq_get(&kb_msgq, &kb_evt, K_NO_WAIT) == 0)
-    {
-        switch (kb_evt.code)
+        if (ret == 0)
         {
-        case INPUT_KEY_0:
-            keyboard_report_set_usage(HID_KEY_NUMLOCK, kb_evt.value);
-            break;
-        case INPUT_KEY_1:
-            keyboard_report_set_usage(HID_KEY_CAPSLOCK, kb_evt.value);
-            break;
-        case INPUT_KEY_2:
-            keyboard_report_set_usage(HID_KEY_SCROLLLOCK, kb_evt.value);
-            break;
-        case INPUT_KEY_3:
-            keyboard_report_set_usage(0xe6, kb_evt.value);
-            keyboard_report_set_usage(HID_KEY_1, kb_evt.value);
-            keyboard_report_set_usage(HID_KEY_2, kb_evt.value);
-            keyboard_report_set_usage(HID_KEY_3, kb_evt.value);
-            break;
-        default:
-            LOG_INF("Unrecognized input code %u value %d",
-                    kb_evt.code, kb_evt.value);
-            continue;
+            memcpy(consumer_report_prev, consumer_report,
+                   sizeof(consumer_report_prev));
+            knob_report_sent(consumer_report[1]);
         }
-
-        keyboard_submit_report(hid_dev, sample_usbd,
-                               keyboard_report,
-                               KBD_HID_KEYBOARD_REPORT_BYTES,
-                               kb_evt.value);
     }
 }
 
@@ -803,6 +756,26 @@ static int peripheral_init(void)
 {
     int ret;
 
+    ret = keyboard_leds_init();
+    if (ret != 0)
+    {
+        return ret;
+    }
+
+    /* Restore the original board's MOS enable and startup settling time. */
+    if (!gpio_is_ready_dt(&kbd_power))
+    {
+        LOG_ERR("Keyboard power GPIO is not ready");
+        return -ENODEV;
+    }
+    ret = gpio_pin_configure_dt(&kbd_power, GPIO_OUTPUT_ACTIVE);
+    if (ret != 0)
+    {
+        LOG_ERR("Failed to enable keyboard power, %d", ret);
+        return ret;
+    }
+    k_msleep(100);
+
     /*
      * Shared initialization for wired, BLE, and 2.4G modes. Mode-specific USB
      * or radio setup happens later, but all modes need reports, keymap, SPI
@@ -810,6 +783,13 @@ static int peripheral_init(void)
      */
     keyboard_report_init();
     keymap_init();
+
+    ret = knob_init();
+    if (ret != 0)
+    {
+        LOG_ERR("Knob device is not ready, %d", ret);
+        return ret;
+    }
 
     ret = keyscan_init();
     if (ret != 0)
@@ -864,22 +844,6 @@ static void ble_mode_dummy(void)
         (void)keyboard_scan_once();
     }
 }
-
-static void input_cb(struct input_event *evt, void *user_data)
-{
-    struct kb_event kb_evt;
-
-    ARG_UNUSED(user_data);
-
-    kb_evt.code = evt->code;
-    kb_evt.value = evt->value;
-    if (k_msgq_put(&kb_msgq, &kb_evt, K_NO_WAIT) != 0)
-    {
-        LOG_ERR("Failed to put new input event");
-    }
-}
-
-INPUT_CALLBACK_DEFINE(NULL, input_cb, NULL);
 
 static void kb_iface_ready(const struct device *dev, const bool ready)
 {
@@ -1024,32 +988,6 @@ static int wired_mode_run(void)
     LOG_INF("Wired mode init");
 
     /*
-     * LED GPIOs are initialized only in wired mode at the moment because USB
-     * control endpoint LED reports are wired-mode behavior. The same helpers
-     * are also used by wireless disconnect/sleep handling.
-     */
-    for (unsigned int i = 0; i < ARRAY_SIZE(kb_leds); i++)
-    {
-        if (kb_leds[i].port == NULL)
-        {
-            continue;
-        }
-
-        if (!gpio_is_ready_dt(&kb_leds[i]))
-        {
-            LOG_ERR("LED device %s is not ready", kb_leds[i].port->name);
-            return -EIO;
-        }
-
-        ret = gpio_pin_configure_dt(&kb_leds[i], GPIO_OUTPUT_INACTIVE);
-        if (ret != 0)
-        {
-            LOG_ERR("Failed to configure the LED pin, %d", ret);
-            return -EIO;
-        }
-    }
-
-    /*
      * Register one HID device that exposes both keyboard and consumer-control
      * reports through report IDs.
      */
@@ -1113,17 +1051,14 @@ static int wired_mode_run(void)
      * Wired main loop:
      *   1. wait for the scan timer
      *   2. scan SPI matrix and debounce
-     *   3. submit changed keymap reports to USB
-     *   4. process any temporary Zephyr input events
+     *   3. merge knob pulses with matrix consumer state
+     *   4. submit changed reports, retrying previously failed submissions
      */
     while (true)
     {
         k_sem_take(&scan_sem, K_FOREVER);
-        if (keyboard_scan_once())
-        {
-            keyboard_submit_keymap_reports(hid_dev, sample_usbd);
-        }
-        keyboard_process_input_events(hid_dev, sample_usbd);
+        (void)keyboard_scan_once();
+        keyboard_submit_keymap_reports(hid_dev, sample_usbd);
     }
 
     return 0;

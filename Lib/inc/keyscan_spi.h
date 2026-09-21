@@ -3,6 +3,7 @@
  *
  * The keyboard switch states are latched by the shift register load pin, then
  * clocked into the MCU through the SPI MISO line.
+ * The controller's cs-gpios entry 0 drives active-low 74HC165 CE#.
  */
 #ifndef KEYSCAN_SPI_H
 #define KEYSCAN_SPI_H
@@ -20,6 +21,7 @@
 int keyscan_init(void);
 int keyscan_read(void);
 void keyscan_log_changes(void);
+/* Normalized scan bitmap: 1 = pressed, 0 = released. */
 const uint8_t *keyscan_state_get(void);
 
 #endif /* KEYSCAN_SPI_H */
