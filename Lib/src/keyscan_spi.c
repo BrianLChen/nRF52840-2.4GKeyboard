@@ -15,6 +15,9 @@ LOG_MODULE_REGISTER(keyscan_spi, KBD_LOG_LEVEL);
 #define KEYSCAN_SPI_NODE DT_ALIAS(keyscan_spi)
 #define KEYSCAN_USER_NODE DT_PATH(zephyr_user)
 
+BUILD_ASSERT(DT_NODE_HAS_COMPAT(KEYSCAN_SPI_NODE, nordic_nrf_spim),
+	     "keyscan-spi must select an EasyDMA SPIM controller");
+
 static const struct device *const scan_spi = DEVICE_DT_GET(KEYSCAN_SPI_NODE);
 static const struct gpio_dt_spec scan_load =
 	GPIO_DT_SPEC_GET(KEYSCAN_USER_NODE, keyscan_load_gpios);
@@ -31,7 +34,10 @@ static const struct spi_config scan_spi_cfg = {
 	},
 };
 
-static uint8_t tx_buf[1];
+/* EasyDMA buffers must live in RAM. Match TX/RX lengths to avoid splitting
+ * the scan at a one-byte TX boundary. MOSI is not connected to the PCB.
+ */
+static uint8_t tx_buf[KEYSCAN_SCAN_BYTES];
 /* Keep physical MISO levels separate from the normalized pressed bitmap. */
 static uint8_t scan_raw[KEYSCAN_SCAN_BYTES];
 static uint8_t scan_state[KEYSCAN_SCAN_BYTES];
@@ -112,6 +118,8 @@ int keyscan_read(void)
 	/*
 	 * PL goes high to hold the loaded inputs. spi_transceive() then drives
 	 * CE# low, clocks all bytes, and returns CE# high before PL goes low.
+	 * The synchronous call waits for EasyDMA completion, not CPU byte copying.
+	 * Keep this in thread context; only publish/debounce a completed scan.
 	 */
 	ret = gpio_pin_set_dt(&scan_load, 1);
 	if (ret != 0) {

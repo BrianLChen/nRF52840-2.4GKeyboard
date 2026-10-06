@@ -35,6 +35,11 @@ int knob_init(void)
 	return device_is_ready(DEVICE_DT_GET(KNOB_NODE)) ? 0 : -ENODEV;
 }
 
+bool knob_has_pending(void)
+{
+	return remaining != 0 || active_bit != 0 || k_msgq_num_used_get(&knob_events) != 0;
+}
+
 uint8_t knob_report_apply(uint8_t matrix_bits)
 {
 	if (!active_bit) {

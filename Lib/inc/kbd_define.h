@@ -27,6 +27,12 @@
 #define KBD_KNOB_STEPS_PER_PERIOD 4
 #define KBD_KNOB_SAMPLE_PERIOD_US 250
 
+/* Debounce all three active-low mode contacts before rebooting into a mode.
+ * No valid contact during switch travel does not select a fallback mode.
+ */
+#define KBD_MODE_SWITCH_POLL_PERIOD_MS 10
+#define KBD_MODE_SWITCH_DEBOUNCE_MS 50
+
 /*
  * Define KBD_ENABLE_LOG in the build when firmware logs are needed.
  * Without it, project module logs are compiled out.
@@ -98,6 +104,11 @@
  * the wireless sleep/idle timer.
  */
 #define KBD_WIRELESS_KEEP_ALIVE_PERIOD_MS 20
+/* Wireless only: idle user input for 180 s enters System OFF.
+ * Held keys and queued knob actions inhibit sleep; radio ACKs do not count
+ * as user activity. P1.07 high wakes by reset, not by resuming the thread.
+ */
+#define KBD_WIRELESS_SLEEP_TIMEOUT_MS 180000U
 #define KBD_WIRELESS_DISCONNECT_COUNTER_PERIOD_MS 100
 #define KBD_WIRELESS_DISCONNECT_COUNTER_THRESHOLD 20
 
