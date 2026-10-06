@@ -24,11 +24,19 @@
 
 LOG_MODULE_REGISTER(main, KBD_LOG_LEVEL);
 
-#define DONGLE_GZLL_REPORT_BYTES KBD_HID_KEYBOARD_REPORT_BYTES
+#define DONGLE_GZLL_REPORT_BYTES KBD_GZLL_TX_PAYLOAD_BYTES
 #define DONGLE_GZLL_ACK_BYTES KBD_GZLL_ACK_PAYLOAD_BYTES
 
-static const uint8_t dongle_gzll_channel_table[KBD_GZLL_CHANNEL_COUNT] =
+/* Gazell requires a mutable channel-table pointer, matching the body. */
+static uint8_t dongle_gzll_channel_table[KBD_GZLL_CHANNEL_COUNT] =
 	KBD_GZLL_CHANNEL_TABLE;
+
+BUILD_ASSERT(DONGLE_GZLL_REPORT_BYTES >= KBD_HID_KEYBOARD_REPORT_BYTES);
+BUILD_ASSERT(DONGLE_GZLL_REPORT_BYTES >= KBD_HID_CONSUMER_REPORT_BYTES);
+BUILD_ASSERT(DONGLE_GZLL_REPORT_BYTES <= NRF_GZLL_CONST_MAX_PAYLOAD_LENGTH);
+
+/* USB owns this aligned buffer until the synchronous submit returns. */
+UDC_STATIC_BUF_DEFINE(dongle_usb_report, DONGLE_GZLL_REPORT_BYTES);
 
 struct dongle_report {
 	uint8_t buf[DONGLE_GZLL_REPORT_BYTES];
@@ -202,7 +210,9 @@ static void dongle_usb_submit_report(const struct device *hid_dev,
 		return;
 	}
 
-	ret = hid_device_submit_report(hid_dev, report_size, buf);
+	/* Queue storage has no USB DMA alignment guarantee. */
+	memcpy(dongle_usb_report, buf, report_size);
+	ret = hid_device_submit_report(hid_dev, report_size, dongle_usb_report);
 	if (ret) {
 		LOG_ERR("HID submit report error, %d", ret);
 	}
