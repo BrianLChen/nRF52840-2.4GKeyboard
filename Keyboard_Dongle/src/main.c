@@ -126,6 +126,8 @@ static void kb_iface_ready(const struct device *dev, const bool ready)
 	ARG_UNUSED(dev);
 	/* The NCS HID class resets its protocol when enabling a configuration. */
 	atomic_set(&protocol, HID_PROTOCOL_REPORT);
+	/* A new USB configuration must obtain fresh LED state from the host. */
+	atomic_clear(&led_state);
 	for (unsigned int i = 0; i < REPORT_COUNT; i++) {
 		atomic_clear(&idle_ms[i]);
 	}
@@ -336,8 +338,13 @@ static bool queue_ack(void)
 	}
 	uint8_t payload[KBD_GZLL_ACK_PAYLOAD_BYTES] = {0};
 
-	/* Forward the cached control-EP state, including while USB is suspended. */
-	payload[0] = atomic_get(&led_state);
+	/* Keep lock LEDs off while USB is suspended or unconfigured. The cache
+	 * is cleared on session loss; only a fresh SET_REPORT may relight LEDs.
+	 * A previously queued ACK drains first through Body keep-alive traffic.
+	 */
+	if (atomic_get(&usb_ready) && !atomic_get(&usb_suspended)) {
+		payload[0] = atomic_get(&led_state);
+	}
 	return nrf_gzll_add_packet_to_tx_fifo(KBD_GZLL_PIPE_NUMBER, payload, sizeof(payload));
 }
 
@@ -558,14 +565,16 @@ static void msg_cb(struct usbd_context *const usbd, const struct usbd_msg *const
 	switch (msg->type) {
 	case USBD_MSG_SUSPEND:
 		atomic_set(&usb_suspended, 1);
+		atomic_clear(&led_state);
 		atomic_set_bit(&events, EVENT_SUSPEND);
 		break;
 	case USBD_MSG_RESUME:
-		/* Preserve queued wake-up press/release reports and cached host LEDs. */
+		/* Preserve wake-up reports; LEDs wait for a fresh host SET_REPORT. */
 		atomic_clear(&usb_suspended);
 		break;
 	case USBD_MSG_RESET:
 		atomic_clear(&usb_ready);
+		atomic_clear(&led_state);
 		atomic_clear(&usb_suspended);
 		atomic_set(&protocol, HID_PROTOCOL_REPORT);
 		request_resync();
@@ -576,6 +585,7 @@ static void msg_cb(struct usbd_context *const usbd, const struct usbd_msg *const
 		break;
 	case USBD_MSG_VBUS_REMOVED:
 		atomic_clear(&vbus_present);
+		atomic_clear(&led_state);
 		atomic_set_bit(&events, EVENT_VBUS_LOST);
 		atomic_set_bit(&events, EVENT_VBUS_CHANGED);
 		atomic_clear(&usb_ready);
