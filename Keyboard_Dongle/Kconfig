@@ -4,6 +4,22 @@
 config SAMPLE_USBD_REMOTE_WAKEUP
 	default y
 
+config DONGLE_REPORT_QUEUE_SIZE
+	int "Pending USB input reports"
+	range 4 256
+	default 64
+	help
+	  Preserve radio press/release ordering while USB is busy. On overflow,
+	  release both report IDs and synchronize their latest state.
+
+config DONGLE_LINK_TIMEOUT_MS
+	int "Radio timeout before releasing all keys (ms)"
+	range 100 10000
+	default 2000
+	help
+	  Release keyboard and consumer keys when no valid Body report arrives.
+	  Body refreshes reports during idle using the shared keep-alive period.
+
 # Source common USB sample options used to initialize new experimental USB
 # device stack. The scope of these options is limited to USB samples in project
 # tree, you cannot use them in your own application.

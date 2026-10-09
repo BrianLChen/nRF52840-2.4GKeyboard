@@ -6,32 +6,43 @@
 
 #include <sample_usbd.h>
 
+#include <errno.h>
 #include <string.h>
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/hwinfo.h>
+#include <zephyr/drivers/usb/usb_buf.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/reboot.h>
-#include <zephyr/sys/poweroff.h>
-#include <zephyr/pm/device.h>
 #include <zephyr/sys/atomic.h>
 #include <zephyr/sys/util.h>
 
 #include <zephyr/usb/class/usbd_hid.h>
 #include <zephyr/usb/usbd.h>
 
-#include <gzll_glue.h>
-#include <nrf_gzll.h>
+#include <gzll_keyboard.h>
+#include <zephyr/sys/poweroff.h>
 
 #include <debounce.h>
 #include <hid_descriptor.h>
+#include <hid_report.h>
+#include <ble_keyboard.h>
+#include <radio_mode.h>
 #include <kbd_define.h>
+#include <kbd_macro.h>
+#include <kbd_report_pipeline.h>
 #include <key_state.h>
 #include <keymap.h>
 #include <keyscan_spi.h>
 #include <knob.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main, KBD_LOG_LEVEL);
+
+BUILD_ASSERT(KBD_USB_SCAN_PERIOD_US > 0);
+BUILD_ASSERT(KBD_GZLL_SCAN_PERIOD_US > 0);
+BUILD_ASSERT(KBD_USB_REPORT_PERIOD_US > 0);
+BUILD_ASSERT(KBD_GZLL_REPORT_PERIOD_US > 0);
 
 enum kb_leds_idx
 {
@@ -53,11 +64,13 @@ static const struct gpio_dt_spec kb_leds[KB_LED_COUNT] = {
 
 enum keyboard_mode
 {
-    KEYBOARD_MODE_UNSELECTED = -1,
     KEYBOARD_MODE_WIRED,
     KEYBOARD_MODE_BLE,
     KEYBOARD_MODE_WIRELESS_24G,
 };
+
+/* Selected once by the switch work; changing modes reboots the device. */
+static enum keyboard_mode active_mode;
 
 #define KBD_USER_NODE DT_PATH(zephyr_user)
 
@@ -65,6 +78,18 @@ static const struct gpio_dt_spec kbd_power =
     GPIO_DT_SPEC_GET(KBD_USER_NODE, kbd_power_gpios);
 static const struct gpio_dt_spec kbd_wake =
     GPIO_DT_SPEC_GET(KBD_USER_NODE, kbd_wake_gpios);
+static struct gpio_callback wake_callback;
+static atomic_t wake_seen;
+
+static void keyboard_wake_callback(const struct device *port,
+                                   struct gpio_callback *cb, uint32_t pins)
+{
+    ARG_UNUSED(port);
+    ARG_UNUSED(cb);
+    ARG_UNUSED(pins);
+    /* Remember even a short press while the hardware changes to wake mode. */
+    atomic_set(&wake_seen, 1);
+}
 
 static const struct gpio_dt_spec mode_wire =
     GPIO_DT_SPEC_GET(KBD_USER_NODE, mode_wire_gpios);
@@ -73,54 +98,22 @@ static const struct gpio_dt_spec mode_ble =
 static const struct gpio_dt_spec mode_wireless =
     GPIO_DT_SPEC_GET(KBD_USER_NODE, mode_wireless_gpios);
 
-/*
- * Gazell callbacks should stay small. They run from the radio/Gazell context,
- * so the callback only copies the TX result into a queue and wakes normal
- * Zephyr work to do RX FIFO reads and LED state updates.
- */
-struct gzll_tx_result
-{
-    bool success;
-    uint32_t pipe;
-    nrf_gzll_device_tx_info_t info;
-};
-
 K_SEM_DEFINE(scan_sem, 0, 1);
-K_MSGQ_DEFINE(gzll_tx_msgq, sizeof(struct gzll_tx_result), 2, sizeof(uint32_t));
 
 UDC_STATIC_BUF_DEFINE(keyboard_report, KBD_HID_KEYBOARD_REPORT_BYTES);
 UDC_STATIC_BUF_DEFINE(consumer_report, KBD_HID_CONSUMER_REPORT_BYTES);
+/* Owned by USB until input_report_done(); scan reports remain writable. */
+UDC_STATIC_BUF_DEFINE(usb_tx_report, KBD_HID_KEYBOARD_REPORT_BYTES);
+static atomic_t usb_tx_busy;
+static atomic_t usb_input_epoch;
 static uint8_t keyboard_report_prev[KBD_HID_KEYBOARD_REPORT_BYTES];
 static uint8_t consumer_report_prev[KBD_HID_CONSUMER_REPORT_BYTES];
 
-/*
- * 2.4G TX payload is intentionally fixed at the full keyboard report length.
- * Smaller reports, such as consumer control, are zero padded before enqueueing
- * so the dongle can remain a transparent USB forwarder.
- */
-static uint8_t wireless_payload[KBD_GZLL_TX_PAYLOAD_BYTES];
-
-/*
- * ACK payload carries host-to-keyboard status. For now only byte 0 is used for
- * keyboard LED state returned by the dongle after the host updates Num/Caps/
- * Scroll Lock.
- */
-static uint8_t wireless_ack_payload[NRF_GZLL_CONST_MAX_PAYLOAD_LENGTH];
-
-/*
- * nrf_gzll_set_channel_table() takes a mutable pointer, so this table cannot
- * be const even though the project treats the configured channels as fixed.
- */
-static uint8_t wireless_gzll_channel_table[KBD_GZLL_CHANNEL_COUNT] =
-    KBD_GZLL_CHANNEL_TABLE;
-static struct k_work gzll_work;
 static uint32_t kb_duration;
-static bool kb_ready;
-static uint8_t wireless_disconnect_counter;
-static uint32_t wireless_keep_alive_fail_counter_ms;
+static atomic_t kb_ready;
+/* USB callbacks cache host state; the scan thread owns the LED GPIOs. */
+static atomic_t usb_led_state;
 static uint8_t keyboard_led_state;
-static bool scan_succeeded;
-static atomic_t wireless_stopping;
 
 /*
  * Timer ISR only releases the scan loop. SPI scan, debounce, keymap, and USB/
@@ -135,6 +128,26 @@ static void scan_timer_expiry(struct k_timer *timer)
 
 K_TIMER_DEFINE(scan_timer, scan_timer_expiry, NULL);
 
+static uint32_t scan_period_us;
+static bool scan_succeeded;
+
+/* Only the scan thread changes timer/debounce units. Bluetooth callbacks
+ * publish their requested period through kbd_ble_scan_period_us().
+ */
+static void keyboard_scan_set_period(uint32_t period_us)
+{
+    if (period_us == scan_period_us)
+    {
+        return;
+    }
+    k_timer_stop(&scan_timer);
+    k_sem_reset(&scan_sem);
+    debounce_set_scan_period_us(period_us);
+    scan_period_us = period_us;
+    k_timer_start(&scan_timer, K_USEC(period_us), K_USEC(period_us));
+    LOG_INF("Matrix scan period: %u us", period_us);
+}
+
 static void keyboard_report_init(void)
 {
     /*
@@ -145,6 +158,7 @@ static void keyboard_report_init(void)
     consumer_report[0] = KBD_HID_REPORT_ID_CONSUMER;
     keyboard_report_prev[0] = KBD_HID_REPORT_ID_KEYBOARD;
     consumer_report_prev[0] = KBD_HID_REPORT_ID_CONSUMER;
+    kbd_report_physical_reset(keyboard_report, consumer_report);
 }
 
 /* All transports share the same active-low status LED GPIOs. */
@@ -199,6 +213,8 @@ static void keyboard_leds_clear(void)
 static int keyboard_leds_set_report(const uint8_t id, const uint16_t len,
                                     const uint8_t *const buf)
 {
+    uint8_t led_state;
+
     if (len == 0U)
     {
         return 0;
@@ -217,75 +233,69 @@ static int keyboard_leds_set_report(const uint8_t id, const uint16_t len,
      */
     if (len > 1U && buf[0] == KBD_HID_REPORT_ID_KEYBOARD)
     {
-        keyboard_led_state = buf[1];
+        led_state = buf[1];
     }
     else
     {
-        keyboard_led_state = buf[0];
+        led_state = buf[0];
     }
 
-    keyboard_led_state &= BIT(KB_LED_NUMLOCK) |
-                          BIT(KB_LED_CAPSLOCK) |
-                          BIT(KB_LED_SCROLLLOCK);
+    led_state &= BIT(KB_LED_NUMLOCK) |
+                 BIT(KB_LED_CAPSLOCK) |
+                 BIT(KB_LED_SCROLLLOCK);
 
-    LOG_INF("Keyboard LED state: 0x%02x", keyboard_led_state);
-    keyboard_leds_set_state(keyboard_led_state);
+    atomic_set(&usb_led_state, led_state);
+    LOG_INF("Keyboard LED state: 0x%02x", led_state);
 
     return 0;
 }
 
-static void keyboard_report_set_code(uint16_t code)
+static void keyboard_report_load_physical(void)
 {
-    uint8_t byte_index;
-    uint8_t mask;
-
-    if (code == KBD_KEY_NONE)
-    {
-        return;
-    }
-
-    /*
-     * Keymap codes are already encoded as report bit positions for keyboard
-     * usages, while consumer controls are kept in a separate report.
-     */
-    if (code >= CONSUMER_VOLUME_INCREASE &&
-        code <= CONSUMER_AL_CALCULATOR)
-    {
-        consumer_report[1] |= BIT(code - CONSUMER_VOLUME_INCREASE);
-        return;
-    }
-
-    byte_index = code / 8U;
-    if (byte_index >= KBD_HID_KEYBOARD_REPORT_BYTES)
-    {
-        LOG_WRN("Keymap code %u is outside keyboard report", code);
-        return;
-    }
-
-    mask = BIT(code % 8U);
-    keyboard_report[byte_index] |= mask;
+    kbd_report_physical_get(keyboard_report, consumer_report);
 }
 
-static void keyboard_report_build_from_keymap(void)
+/* Session changes discard old physical input, without moving report slots. */
+static void keyboard_report_resync(void)
 {
-    uint8_t active_layer = keymap_get_active_layer();
-    struct key_state *keys = key_state_buffer_get();
+    uint8_t physical_keyboard[KBD_HID_KEYBOARD_REPORT_BYTES];
+    uint8_t physical_consumer[KBD_HID_CONSUMER_REPORT_BYTES];
 
-    /*
-     * FN keys select the active layer but do not emit a HID usage by
-     * themselves. The active layer is computed from debounced key state.
-     */
-    memset(&keyboard_report[1], 0, KBD_HID_KEYBOARD_REPORT_BYTES - 1);
-    consumer_report[1] = 0;
+    hid_report_build_nkro(physical_keyboard, physical_consumer);
+    kbd_report_physical_reset(physical_keyboard, physical_consumer);
+}
 
-    for (uint16_t key = 0; key < KBD_KEY_COUNT; key++)
+static bool keyboard_report_slot_due(uint32_t period_us)
+{
+    return kbd_report_due(k_ticks_to_us_floor64(k_uptime_ticks()), period_us);
+}
+
+static void keyboard_handle_actions(uint8_t actions)
+{
+    /* Cancel/session actions win over starts in the same scan. */
+    if (actions & (KBD_ACTION_MACRO_CANCEL | KBD_ACTION_PAIRING |
+                   KBD_ACTION_DEVICE_SWITCH))
     {
-        if (!keys[key].press_status || keymap_is_fn_key(key))
+        kbd_macro_cancel();
+    }
+    else
+    {
+        for (uint8_t id = 0; id < KBD_MACRO_SLOT_COUNT; id++)
         {
-            continue;
+            if (actions & (KBD_ACTION_MACRO_0 << id))
+            {
+                bool started = kbd_macro_start(id, (uint64_t)k_uptime_get());
+                LOG_INF("Macro %u %s", id, started ? "started" : "ignored");
+                ARG_UNUSED(started);
+                /* One start per scan, no queueing of subsequent triggers. */
+                break;
+            }
         }
-
-        keyboard_report_set_code(keymap_get_code(active_layer, key));
+    }
+    /* No scanning occurs in BLE mode until kbd_ble_init() has succeeded. */
+    if (active_mode == KEYBOARD_MODE_BLE)
+    {
+        kbd_ble_handle_actions(actions);
     }
 }
 
@@ -309,6 +319,14 @@ static bool keyboard_scan_once(void)
 
     if (debounce_update())
     {
+        keyboard_handle_actions(keymap_update_actions());
+        uint8_t physical_keyboard[KBD_HID_KEYBOARD_REPORT_BYTES];
+        uint8_t physical_consumer[KBD_HID_CONSUMER_REPORT_BYTES];
+        hid_report_build_nkro(physical_keyboard, physical_consumer);
+        if (!kbd_report_capture(physical_keyboard, physical_consumer))
+        {
+            LOG_WRN("Physical report queue full; retaining latest state");
+        }
         LOG_INF("Debounced key state changed");
         keyscan_log_changes();
         return true;
@@ -317,278 +335,21 @@ static bool keyboard_scan_once(void)
     return false;
 }
 
-static void __maybe_unused wireless_disconnect_counter_reset(void)
-{
-    wireless_disconnect_counter = 0;
-    wireless_keep_alive_fail_counter_ms = k_uptime_get_32();
-}
-
-static void __maybe_unused wireless_disconnect_counter_add_report_fail(void)
-{
-    if (wireless_disconnect_counter < KBD_WIRELESS_DISCONNECT_COUNTER_THRESHOLD)
-    {
-        wireless_disconnect_counter++;
-    }
-
-    if (wireless_disconnect_counter >= KBD_WIRELESS_DISCONNECT_COUNTER_THRESHOLD)
-    {
-        keyboard_leds_clear();
-    }
-}
-
-/*
- * Keep-alive failures are rate-limited before touching the shared disconnect
- * counter. This prevents background keep-alive traffic from making the device
- * enter disconnected behavior faster than real failed key reports.
- */
-static void __maybe_unused wireless_disconnect_counter_add_keep_alive_fail(void)
-{
-    uint32_t now = k_uptime_get_32();
-
-    if ((now - wireless_keep_alive_fail_counter_ms) <
-        KBD_WIRELESS_DISCONNECT_COUNTER_PERIOD_MS)
-    {
-        return;
-    }
-
-    wireless_keep_alive_fail_counter_ms = now;
-    wireless_disconnect_counter_add_report_fail();
-}
-
-/*
- * Queue one Gazell packet. The caller passes the logical HID report length;
- * this function pads it to KBD_GZLL_TX_PAYLOAD_BYTES for the radio payload.
- */
-static int wireless_gzll_queue_payload(const uint8_t *report, size_t report_size)
-{
-    bool result_value;
-
-    if (report_size > sizeof(wireless_payload))
-    {
-        LOG_ERR("Wireless report too large: %u", (unsigned int)report_size);
-        return -EINVAL;
-    }
-
-    memset(wireless_payload, 0, sizeof(wireless_payload));
-    memcpy(wireless_payload, report, report_size);
-
-    result_value = nrf_gzll_add_packet_to_tx_fifo(KBD_GZLL_PIPE_NUMBER,
-                                                  wireless_payload,
-                                                  sizeof(wireless_payload));
-    if (!result_value)
-    {
-        LOG_WRN("GZLL TX FIFO add failed");
-        return -EIO;
-    }
-
-    return 0;
-}
-
-/*
- * Process one completed Gazell TX attempt in workqueue context.
- *
- * TX success is the connection signal because the host does not continuously
- * send LED output reports. If the ACK contains data, byte 0 is applied to the
- * local keyboard LED indicators.
- */
-static void wireless_gzll_handle_tx_result(struct gzll_tx_result *tx_result)
-{
-    bool result_value;
-    uint32_t ack_payload_length = sizeof(wireless_ack_payload);
-
-    if (tx_result->success)
-    {
-        wireless_disconnect_counter_reset();
-
-        if (tx_result->info.payload_received_in_ack)
-        {
-            result_value = nrf_gzll_fetch_packet_from_rx_fifo(
-                tx_result->pipe,
-                wireless_ack_payload,
-                &ack_payload_length);
-            if (!result_value)
-            {
-                LOG_ERR("GZLL RX FIFO fetch failed");
-                return;
-            }
-
-            if (ack_payload_length >= KBD_GZLL_ACK_PAYLOAD_BYTES)
-            {
-                keyboard_led_state = wireless_ack_payload[0] &
-                                     (BIT(KB_LED_NUMLOCK) |
-                                      BIT(KB_LED_CAPSLOCK) |
-                                      BIT(KB_LED_SCROLLLOCK));
-                keyboard_leds_set_state(keyboard_led_state);
-            }
-        }
-
-        return;
-    }
-
-    wireless_disconnect_counter_add_report_fail();
-}
-
-/* Drain all queued radio completion events after a callback wakes this work. */
-static void wireless_gzll_work_handler(struct k_work *work)
-{
-    struct gzll_tx_result tx_result;
-
-    ARG_UNUSED(work);
-
-    while (k_msgq_get(&gzll_tx_msgq, &tx_result, K_NO_WAIT) == 0)
-    {
-        wireless_gzll_handle_tx_result(&tx_result);
-    }
-}
-
-/* Common callback helper: copy Gazell TX metadata into Zephyr-owned context. */
-static void wireless_gzll_report_tx(bool success,
-                                    uint32_t pipe,
-                                    nrf_gzll_device_tx_info_t *tx_info)
-{
-    if (atomic_get(&wireless_stopping))
-    {
-        return;
-    }
-    struct gzll_tx_result tx_result = {
-        .success = success,
-        .pipe = pipe,
-        .info = *tx_info,
-    };
-
-    if (k_msgq_put(&gzll_tx_msgq, &tx_result, K_NO_WAIT) == 0)
-    {
-        k_work_submit(&gzll_work);
-    }
-}
-
-/* Gazell device callback: packet was ACKed by the dongle. */
-void nrf_gzll_device_tx_success(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info)
-{
-    wireless_gzll_report_tx(true, pipe, &tx_info);
-}
-
-/* Gazell device callback: packet retry budget expired without an ACK. */
-void nrf_gzll_device_tx_failed(uint32_t pipe, nrf_gzll_device_tx_info_t tx_info)
-{
-    wireless_gzll_report_tx(false, pipe, &tx_info);
-}
-
-/* Required Gazell callback. No dynamic shutdown handling is needed yet. */
-void nrf_gzll_disabled(void)
-{
-}
-
-/*
- * Host RX is not used by the keyboard body. The body is a Gazell device and
- * receives dongle data through ACK payloads after TX success.
- */
-void nrf_gzll_host_rx_data_ready(uint32_t pipe, nrf_gzll_host_rx_info_t rx_info)
-{
-    ARG_UNUSED(pipe);
-    ARG_UNUSED(rx_info);
-}
-
-/*
- * Configure the keyboard body as a Gazell device.
- *
- * Address, prefix, channel table, payload size, and ACK payload size must stay
- * aligned with the dongle side shared configuration.
- */
-static int wireless_gzll_init(void)
-{
-    bool result_value;
-
-    k_work_init(&gzll_work, wireless_gzll_work_handler);
-
-    result_value = gzll_glue_init();
-    if (!result_value)
-    {
-        LOG_ERR("Cannot initialize GZLL glue");
-        return -EIO;
-    }
-
-    result_value = nrf_gzll_init(NRF_GZLL_MODE_DEVICE);
-    if (!result_value)
-    {
-        LOG_ERR("Cannot initialize GZLL device");
-        return -EIO;
-    }
-
-    result_value = nrf_gzll_set_base_address_1(KBD_GZLL_BASE_ADDRESS_1);
-    if (!result_value)
-    {
-        LOG_ERR("Cannot set GZLL base address");
-        return -EIO;
-    }
-
-    result_value = nrf_gzll_set_address_prefix_byte(KBD_GZLL_PIPE_NUMBER,
-                                                    KBD_GZLL_PIPE_PREFIX);
-    if (!result_value)
-    {
-        LOG_ERR("Cannot set GZLL pipe prefix");
-        return -EIO;
-    }
-
-    result_value = nrf_gzll_set_channel_table(wireless_gzll_channel_table,
-                                              KBD_GZLL_CHANNEL_COUNT);
-    if (!result_value)
-    {
-        LOG_ERR("Cannot set GZLL channel table");
-        return -EIO;
-    }
-
-    nrf_gzll_set_timeslots_per_channel(KBD_GZLL_TIMESLOTS_PER_CHANNEL);
-    nrf_gzll_set_timeslots_per_channel_when_device_out_of_sync(
-        KBD_GZLL_OUT_OF_SYNC_TIMESLOTS_PER_CHANNEL);
-    nrf_gzll_set_device_channel_selection_policy(
-        NRF_GZLL_DEVICE_CHANNEL_SELECTION_POLICY_USE_CURRENT);
-    nrf_gzll_set_sync_lifetime(KBD_GZLL_SYNC_LIFETIME);
-    nrf_gzll_set_max_tx_attempts(KBD_GZLL_MAX_TX_ATTEMPTS);
-
-    /*
-     * Prime the FIFO before enabling Gazell. This mirrors Nordic's example
-     * flow and gives the radio an initial packet immediately after enable.
-     */
-    result_value = nrf_gzll_add_packet_to_tx_fifo(KBD_GZLL_PIPE_NUMBER,
-                                                  keyboard_report,
-                                                  KBD_GZLL_TX_PAYLOAD_BYTES);
-    if (!result_value)
-    {
-        LOG_ERR("Cannot add initial GZLL TX packet");
-        return -EIO;
-    }
-
-    result_value = nrf_gzll_enable();
-    if (!result_value)
-    {
-        LOG_ERR("Cannot enable GZLL");
-        return -EIO;
-    }
-
-    LOG_INF("GZLL device initialized");
-
-    return 0;
-}
-
-/*
- * Convert debounced key state into radio reports.
- *
- * Previous-report tracking is updated only after the packet enters the Gazell
- * FIFO. If the FIFO is full, the same report remains pending and will be
- * retried by the next scan tick.
- */
+/* A report slot consumes one physical snapshot. Full transport queues leave
+ * it pending for the next slot; macro/knob progression follows these slots. */
 static void wireless_submit_keymap_reports(void)
 {
-    int ret;
+    int ret = 0;
 
-    keyboard_report_build_from_keymap();
+    keyboard_report_load_physical();
+    kbd_macro_apply(keyboard_report, (uint64_t)k_uptime_get(),
+                    kbd_gzll_tx_idle(), 0);
     consumer_report[1] = knob_report_apply(consumer_report[1]);
 
     if (memcmp(keyboard_report_prev, keyboard_report,
                sizeof(keyboard_report_prev)) != 0)
     {
-        ret = wireless_gzll_queue_payload(keyboard_report,
+        ret = kbd_gzll_submit(keyboard_report,
                                           KBD_HID_KEYBOARD_REPORT_BYTES);
         if (ret == 0)
         {
@@ -597,10 +358,16 @@ static void wireless_submit_keymap_reports(void)
         }
     }
 
+    if (ret == 0)
+    {
+        /* Includes an unchanged union, e.g. a physically held macro key. */
+        kbd_macro_report_accepted();
+    }
+
     if (memcmp(consumer_report_prev, consumer_report,
                sizeof(consumer_report_prev)) != 0)
     {
-        ret = wireless_gzll_queue_payload(consumer_report,
+        ret = kbd_gzll_submit(consumer_report,
                                           KBD_HID_CONSUMER_REPORT_BYTES);
         if (ret == 0)
         {
@@ -608,6 +375,11 @@ static void wireless_submit_keymap_reports(void)
                    sizeof(consumer_report_prev));
             knob_report_sent(consumer_report[1]);
         }
+    }
+    if (!memcmp(keyboard_report_prev, keyboard_report, sizeof(keyboard_report_prev)) &&
+        !memcmp(consumer_report_prev, consumer_report, sizeof(consumer_report_prev)))
+    {
+        kbd_report_physical_accepted();
     }
 }
 
@@ -619,7 +391,7 @@ static int keyboard_submit_report(const struct device *hid_dev,
 {
     int ret;
 
-    if (!kb_ready)
+    if (!atomic_get(&kb_ready))
     {
         return -EAGAIN;
     }
@@ -643,9 +415,17 @@ static int keyboard_submit_report(const struct device *hid_dev,
 
     LOG_DBG("Main thread: USB report");
 
-    ret = hid_device_submit_report(hid_dev, report_size, report);
+    if (atomic_get(&usb_tx_busy))
+    {
+        return -EAGAIN;
+    }
+    memcpy(usb_tx_report, report, report_size);
+    /* Completion may run before submit returns. */
+    atomic_set(&usb_tx_busy, 1);
+    ret = hid_device_submit_report(hid_dev, report_size, usb_tx_report);
     if (ret)
     {
+        atomic_clear(&usb_tx_busy);
         LOG_ERR("HID submit report error, %d", ret);
     }
     return ret;
@@ -655,9 +435,12 @@ static void keyboard_submit_keymap_reports(const struct device *hid_dev,
                                            struct usbd_context *sample_usbd)
 {
     bool wake_on_press = false;
-    int ret;
+    int ret = 0;
+    atomic_val_t epoch = atomic_get(&usb_input_epoch);
 
-    keyboard_report_build_from_keymap();
+    keyboard_report_load_physical();
+    kbd_macro_apply(keyboard_report, (uint64_t)k_uptime_get(),
+                    !atomic_get(&usb_tx_busy), 0);
     consumer_report[1] = knob_report_apply(consumer_report[1]);
 
     for (size_t i = 1; i < sizeof(keyboard_report); i++)
@@ -668,7 +451,7 @@ static void keyboard_submit_keymap_reports(const struct device *hid_dev,
     /*
      * Submit only changed reports. Keyboard and consumer reports are tracked
      * separately, so a media-key change does not resend the full NKRO report.
-     * Advance the sent snapshot only on success; retry on subsequent ticks.
+     * Advance the sent snapshot only on success; retry on subsequent slots.
      */
     if (memcmp(keyboard_report_prev, keyboard_report,
                sizeof(keyboard_report_prev)) != 0)
@@ -684,6 +467,12 @@ static void keyboard_submit_keymap_reports(const struct device *hid_dev,
         }
     }
 
+    if (ret == 0 && atomic_get(&kb_ready) && !usbd_is_suspended(sample_usbd) &&
+        epoch == atomic_get(&usb_input_epoch))
+    {
+        kbd_macro_report_accepted();
+    }
+
     if (memcmp(consumer_report_prev, consumer_report,
                sizeof(consumer_report_prev)) != 0)
     {
@@ -697,6 +486,13 @@ static void keyboard_submit_keymap_reports(const struct device *hid_dev,
                    sizeof(consumer_report_prev));
             knob_report_sent(consumer_report[1]);
         }
+    }
+    if (atomic_get(&kb_ready) && !usbd_is_suspended(sample_usbd) &&
+        epoch == atomic_get(&usb_input_epoch) &&
+        !memcmp(keyboard_report_prev, keyboard_report, sizeof(keyboard_report_prev)) &&
+        !memcmp(consumer_report_prev, consumer_report, sizeof(consumer_report_prev)))
+    {
+        kbd_report_physical_accepted();
     }
 }
 
@@ -730,92 +526,145 @@ static int mode_gpio_init(void)
     return mode_gpio_init_one(&mode_wireless);
 }
 
-static int mode_candidate_contacts = -1;
-static uint32_t mode_candidate_since;
-static enum keyboard_mode active_mode = KEYBOARD_MODE_UNSELECTED;
-static struct k_work_delayable mode_switch_work;
+#define MODE_SWITCH_DEBOUNCE_MS KBD_MODE_SWITCH_DEBOUNCE_MS
 
-/* gpio_pin_get_dt() applies GPIO_ACTIVE_LOW: a physical low reads as 1. */
-static int mode_switch_read_contacts(void)
+static bool mode_selected;
+static uint32_t mode_last_edge_ms;
+K_SEM_DEFINE(mode_selected_sem, 0, 1);
+
+static const struct gpio_dt_spec *const mode_inputs[] = {
+    &mode_wire, &mode_ble, &mode_wireless,
+};
+static struct gpio_callback mode_callbacks[ARRAY_SIZE(mode_inputs)];
+
+/* gpio_pin_get_dt() returns logical 1 for the active-low selected contact. */
+static int keyboard_mode_detect(void)
 {
-    int wire = gpio_pin_get_dt(&mode_wire);
+    int wired = gpio_pin_get_dt(&mode_wire);
     int ble = gpio_pin_get_dt(&mode_ble);
     int wireless = gpio_pin_get_dt(&mode_wireless);
 
-    if (wire < 0 || ble < 0 || wireless < 0)
+    if (wired < 0 || ble < 0 || wireless < 0)
     {
-        return -EIO;
+        return wired < 0 ? wired : (ble < 0 ? ble : wireless);
     }
-    return (wire ? BIT(0) : 0) | (ble ? BIT(1) : 0) |
-           (wireless ? BIT(2) : 0);
+
+    /* Ignore open contacts and overlapping contacts while the switch moves. */
+    if (wired + ble + wireless != 1)
+    {
+        return -EAGAIN;
+    }
+
+    return wired ? KEYBOARD_MODE_WIRED :
+           (ble ? KEYBOARD_MODE_BLE : KEYBOARD_MODE_WIRELESS_24G);
 }
 
-/* Debounce the complete contact mask, including break-before-make gaps. */
-static enum keyboard_mode mode_switch_filter(int contacts, uint32_t now)
+static void mode_switch_work_handler(struct k_work *work);
+K_WORK_DELAYABLE_DEFINE(mode_switch_work, mode_switch_work_handler);
+
+static void mode_switch_gpio_callback(const struct device *port,
+                                     struct gpio_callback *cb,
+                                     gpio_port_pins_t pins)
 {
-    if (contacts < 0)
-    {
-        mode_candidate_contacts = -1;
-        return KEYBOARD_MODE_UNSELECTED;
-    }
-    if (contacts != mode_candidate_contacts)
-    {
-        mode_candidate_contacts = contacts;
-        mode_candidate_since = now;
-        return KEYBOARD_MODE_UNSELECTED;
-    }
-    if ((uint32_t)(now - mode_candidate_since) < KBD_MODE_SWITCH_DEBOUNCE_MS)
-    {
-        return KEYBOARD_MODE_UNSELECTED;
-    }
+    ARG_UNUSED(port);
+    ARG_UNUSED(cb);
+    ARG_UNUSED(pins);
 
-    /* Preserve the original nRF5 precedence if multiple contacts are low. */
-    if (contacts & BIT(0))
-    {
-        return KEYBOARD_MODE_WIRED;
-    }
-    if (contacts & BIT(1))
-    {
-        return KEYBOARD_MODE_BLE;
-    }
-    if (contacts & BIT(2))
-    {
-        return KEYBOARD_MODE_WIRELESS_24G;
-    }
-    return KEYBOARD_MODE_UNSELECTED;
-}
-
-static enum keyboard_mode keyboard_mode_detect(void)
-{
-    enum keyboard_mode mode;
-
-    /* As in nRF5, wait for a valid position instead of defaulting to USB. */
-    do {
-        mode = mode_switch_filter(mode_switch_read_contacts(), k_uptime_get_32());
-        if (mode == KEYBOARD_MODE_UNSELECTED)
-        {
-            k_msleep(KBD_MODE_SWITCH_POLL_PERIOD_MS);
-        }
-    } while (mode == KEYBOARD_MODE_UNSELECTED);
-
-    return mode;
+    mode_last_edge_ms = k_uptime_get_32();
+    /* No wait or reboot in interrupt context; every edge restarts debounce. */
+    k_work_reschedule(&mode_switch_work, K_MSEC(MODE_SWITCH_DEBOUNCE_MS));
 }
 
 static void mode_switch_work_handler(struct k_work *work)
 {
-    ARG_UNUSED(work);
-    enum keyboard_mode mode = mode_switch_filter(mode_switch_read_contacts(),
-                                                 k_uptime_get_32());
+    unsigned int key;
+    uint32_t elapsed;
+    int mode;
 
-    if (mode != KEYBOARD_MODE_UNSELECTED && mode != active_mode)
+    ARG_UNUSED(work);
+
+    /* A queued handler may run after a newer edge. Recheck its age and read
+     * the three on-chip GPIOs without a callback changing the timestamp.
+     */
+    key = irq_lock();
+    elapsed = (uint32_t)(k_uptime_get_32() - mode_last_edge_ms);
+    if (elapsed < MODE_SWITCH_DEBOUNCE_MS)
     {
-        LOG_INF("Mode switch %d -> %d: rebooting", active_mode, mode);
-        keyboard_leds_clear();
-        /* Reset owns USB/radio teardown, matching the old firmware design. */
+        k_work_reschedule(&mode_switch_work,
+                          K_MSEC(MODE_SWITCH_DEBOUNCE_MS - elapsed));
+        irq_unlock(key);
+        return;
+    }
+    mode = keyboard_mode_detect();
+    irq_unlock(key);
+
+    if (mode < 0)
+    {
+        if (mode != -EAGAIN)
+        {
+            LOG_ERR("Failed to read mode switch, %d", mode);
+        }
+        /* No valid selection: keep the current mode and await another edge. */
+        return;
+    }
+
+    if (!mode_selected)
+    {
+        active_mode = (enum keyboard_mode)mode;
+        mode_selected = true;
+        k_sem_give(&mode_selected_sem);
+    }
+    else if (mode != (int)active_mode)
+    {
+        /* Reset releases the previous USB/radio resources before mode init. */
+        LOG_INF("Mode switch %u -> %u, rebooting",
+                (unsigned int)active_mode, (unsigned int)mode);
         sys_reboot(SYS_REBOOT_COLD);
         return;
     }
-    k_work_reschedule(&mode_switch_work, K_MSEC(KBD_MODE_SWITCH_POLL_PERIOD_MS));
+
+}
+
+static int mode_switch_start(void)
+{
+    int ret;
+    size_t i;
+
+    for (i = 0; i < ARRAY_SIZE(mode_inputs); i++)
+    {
+        gpio_init_callback(&mode_callbacks[i], mode_switch_gpio_callback,
+                           BIT(mode_inputs[i]->pin));
+        ret = gpio_add_callback(mode_inputs[i]->port, &mode_callbacks[i]);
+        if (ret != 0)
+        {
+            break;
+        }
+        ret = gpio_pin_interrupt_configure_dt(mode_inputs[i], GPIO_INT_EDGE_BOTH);
+        if (ret != 0)
+        {
+            gpio_remove_callback(mode_inputs[i]->port, &mode_callbacks[i]);
+            break;
+        }
+    }
+
+    if (i != ARRAY_SIZE(mode_inputs))
+    {
+        while (i > 0)
+        {
+            i--;
+            gpio_pin_interrupt_configure_dt(mode_inputs[i], GPIO_INT_DISABLE);
+            gpio_remove_callback(mode_inputs[i]->port, &mode_callbacks[i]);
+        }
+        k_work_cancel_delayable(&mode_switch_work);
+        return ret;
+    }
+
+    /* Initial evaluation also works when the switch never produces an edge. */
+    unsigned int key = irq_lock();
+    mode_last_edge_ms = k_uptime_get_32();
+    k_work_reschedule(&mode_switch_work, K_MSEC(MODE_SWITCH_DEBOUNCE_MS));
+    irq_unlock(key);
+    return 0;
 }
 
 static int peripheral_init(void)
@@ -828,17 +677,7 @@ static int peripheral_init(void)
         return ret;
     }
 
-    if (!gpio_is_ready_dt(&kbd_wake))
-    {
-        return -ENODEV;
-    }
-    ret = gpio_pin_configure_dt(&kbd_wake, GPIO_INPUT);
-    if (ret != 0)
-    {
-        return ret;
-    }
-
-    /* P1.05 high turns Q1 on, grounding the key common rail for scanning. */
+    /* P1.05 high turns Q1 on and grounds the key common for normal scanning. */
     if (!gpio_is_ready_dt(&kbd_power))
     {
         LOG_ERR("Keyboard power GPIO is not ready");
@@ -859,7 +698,31 @@ static int peripheral_init(void)
      */
     keyboard_report_init();
     keymap_init();
+    kbd_macro_set_enabled(false);
 
+    if (active_mode != KEYBOARD_MODE_WIRED)
+    {
+        if (!gpio_is_ready_dt(&kbd_wake))
+        {
+            return -ENODEV;
+        }
+        ret = gpio_pin_configure_dt(&kbd_wake, GPIO_INPUT);
+        if (ret != 0)
+        {
+            return ret;
+        }
+        ret = gpio_pin_interrupt_configure_dt(&kbd_wake, GPIO_INT_DISABLE);
+        if (ret != 0)
+        {
+            return ret;
+        }
+        gpio_init_callback(&wake_callback, keyboard_wake_callback, BIT(kbd_wake.pin));
+        ret = gpio_add_callback(kbd_wake.port, &wake_callback);
+        if (ret != 0)
+        {
+            return ret;
+        }
+    }
     ret = knob_init();
     if (ret != 0)
     {
@@ -873,24 +736,21 @@ static int peripheral_init(void)
         return ret;
     }
 
-    k_timer_start(&scan_timer,
-                  K_USEC(KBD_SCAN_PERIOD_US),
-                  K_USEC(KBD_SCAN_PERIOD_US));
+    keyboard_scan_set_period(active_mode == KEYBOARD_MODE_BLE ?
+                             kbd_ble_scan_period_us() :
+                             (active_mode == KEYBOARD_MODE_WIRED ?
+                              KBD_USB_SCAN_PERIOD_US : KBD_GZLL_SCAN_PERIOD_US));
 
     return 0;
 }
 
-/* Called only by wireless mode loops. Transport traffic never updates idle time. */
-static bool wireless_user_active(bool changed)
+static bool keyboard_any_key_down(void)
 {
-    if (changed || !scan_succeeded || knob_has_pending())
-    {
-        return true;
-    }
     struct key_state *keys = key_state_buffer_get();
-    for (size_t i = 0; i < KBD_KEY_COUNT; i++)
+    for (size_t i = 0; i < KBD_KEY_COUNT; ++i)
     {
-        if (keys[i].scan_status || keys[i].press_status)
+        /* Include raw state so a key still being debounced prevents sleep. */
+        if (keys[i].press_status || keys[i].scan_status)
         {
             return true;
         }
@@ -898,87 +758,142 @@ static bool wireless_user_active(bool changed)
     return false;
 }
 
-static void wireless_enter_system_off(void)
+static void wireless_sleep_prepare(void)
 {
-    struct k_work_sync sync;
-    int ret;
-    int contacts_before = mode_switch_read_contacts();
-
-    /* Do not turn off while the wake signal is already asserted or unreadable. */
-    if (gpio_pin_get_dt(&kbd_wake) != 0 || contacts_before <= 0)
+    bool ble = active_mode == KEYBOARD_MODE_BLE;
+    bool interrupts_locked = false;
+    unsigned int irq_key = 0;
+    uint32_t knob_epoch = knob_activity_epoch();
+    int ret = gpio_pin_get_dt(&kbd_wake);
+    if (ret != 0)
+    {
+        LOG_WRN("Deferring sleep: wake input active or unreadable (%d)", ret);
+        return;
+    }
+    if (keyboard_any_key_down())
     {
         return;
     }
 
-    atomic_set(&wireless_stopping, 1);
-    nrf_gzll_disable();
-    uint32_t start = k_uptime_get_32();
-    while (nrf_gzll_is_enabled())
+    /* Shutdown runs in the scan thread, never an IRQ or system work item. */
+    ret = ble ? kbd_ble_stop() : kbd_gzll_stop();
+    if (ble && ret == -EBUSY)
     {
-        if ((uint32_t)(k_uptime_get_32() - start) >= 1000U)
-        {
-            LOG_ERR("Gazell did not stop; restarting instead of powering off");
-            sys_reboot(SYS_REBOOT_COLD);
-        }
-        k_msleep(1);
+        /* Pairing/slot state changed since the idle check; scanning continues. */
+        return;
     }
-    /* No ACK worker may relight LEDs after this point. */
-    k_work_cancel_sync(&gzll_work, &sync);
-    k_work_cancel_delayable_sync(&mode_switch_work, &sync);
+    if (ret != 0)
+    {
+        goto reboot;
+    }
     k_timer_stop(&scan_timer);
+    /* A disconnect may take time. Recheck physical input before removing SPI. */
+    ret = keyscan_read();
+    if (ret != 0)
+    {
+        goto reboot;
+    }
+    if (keyboard_any_key_down() || knob_activity_epoch() != knob_epoch)
+    {
+        ret = -EAGAIN;
+        goto reboot;
+    }
     keyboard_leds_clear();
-
-    /* Stop gpio-qdec polling and GPIO edge sensing before arming wake levels. */
-    ret = pm_device_action_run(DEVICE_DT_GET(DT_ALIAS(kbd_knob)),
-                               PM_DEVICE_ACTION_SUSPEND);
+    ret = knob_suspend();
+    if (ret == 0)
+    {
+        ret = keyscan_suspend();
+    }
+    if (ret == 0)
+    {
+        atomic_clear(&wake_seen);
+        ret = gpio_pin_interrupt_configure_dt(&kbd_wake, GPIO_INT_EDGE_TO_ACTIVE);
+    }
+    if (ret == 0)
+    {
+        /* Preserve the original PCB sleep state: external R1 pulls Q1 off.
+         * R3 is populated as 100 kohm, not the schematic 0 ohm. This
+         * releases the key common rail; it does not switch VCC33 off.
+         */
+        ret = gpio_pin_configure(kbd_power.port, kbd_power.pin, GPIO_INPUT);
+    }
     if (ret != 0)
     {
-        LOG_ERR("Cannot suspend knob, %d", ret);
-        sys_reboot(SYS_REBOOT_COLD);
+        goto reboot;
     }
-    ret = pm_device_action_run(DEVICE_DT_GET(DT_ALIAS(keyscan_spi)),
-                               PM_DEVICE_ACTION_SUSPEND);
-    if (ret != 0)
+    k_msleep(5);
+    ret = gpio_pin_get_dt(&kbd_wake);
+    if (ret != 0 || atomic_get(&wake_seen))
     {
-        LOG_ERR("Cannot suspend scan SPI, %d", ret);
-        sys_reboot(SYS_REBOOT_COLD);
+        ret = ret < 0 ? ret : -EAGAIN;
+        goto reboot;
     }
 
-    /* Match nRF5's default MOS pin state: external R1 pulls Q1's gate low.
-     * Releasing the key common rail enables the external P1.07 wake circuit.
-     * Hardware note: Q2's R3 is populated as 100 kohm, not schematic 0 ohm.
-     * Do this only after scanning has stopped; normal scan polarity no longer
-     * applies with Q1 off. Boot restores Q1 before the first matrix scan.
+    /* Preserve mode-switch wake from OFF, including BLE <-> 2.4G.
+     * The selected (already low) contact must not immediately wake us. */
+    struct k_work_sync sync;
+    const struct gpio_dt_spec *selected_mode = ble ? &mode_ble : &mode_wireless;
+    for (size_t i = 0; i < ARRAY_SIZE(mode_inputs); ++i)
+    {
+        gpio_pin_interrupt_configure_dt(mode_inputs[i], GPIO_INT_DISABLE);
+        gpio_remove_callback(mode_inputs[i]->port, &mode_callbacks[i]);
+    }
+    k_work_cancel_delayable_sync(&mode_switch_work, &sync);
+    LOG_INF("[power] %s entering System OFF; press a key or move the mode switch\n",
+           ble ? "BLE" : "Gazell");
+    (void)hwinfo_clear_reset_cause();
+    /* nRF GPIO level interrupts retrigger while active. Keep this final,
+     * nonblocking GPIO/SENSE-to-OFF sequence atomic, including mode contacts.
+     * A later level assertion wakes System OFF through hardware DETECT.
      */
-    ret = gpio_pin_configure(kbd_power.port, kbd_power.pin, GPIO_INPUT);
-    if (ret != 0)
+    irq_key = irq_lock();
+    interrupts_locked = true;
+    for (size_t i = 0; i < ARRAY_SIZE(mode_inputs); ++i)
     {
-        LOG_ERR("Cannot release key common rail, %d", ret);
-        sys_reboot(SYS_REBOOT_COLD);
-    }
-    k_msleep(1);
-
-    /* A mode change while off must also wake the CPU to select the new mode. */
-    const struct gpio_dt_spec *contacts[] = { &mode_wire, &mode_ble, &mode_wireless };
-    LOG_INF("System OFF: P1.07 high or mode switch change wakes by reset");
-    (void)irq_lock();
-    for (size_t i = 0; i < ARRAY_SIZE(contacts); i++)
-    {
-        int level = gpio_pin_get_dt(contacts[i]);
-        if (level < 0 || gpio_pin_interrupt_configure_dt(contacts[i],
-                level ? GPIO_INT_LEVEL_INACTIVE : GPIO_INT_LEVEL_ACTIVE) != 0)
+        ret = gpio_pin_interrupt_configure_dt(mode_inputs[i],
+                    mode_inputs[i] == selected_mode ?
+                    GPIO_INT_LEVEL_INACTIVE : GPIO_INT_LEVEL_ACTIVE);
+        if (ret != 0)
         {
-            sys_reboot(SYS_REBOOT_COLD);
+            goto reboot;
+        }
+        ret = gpio_pin_get_dt(mode_inputs[i]);
+        if (ret < 0 || ret != (mode_inputs[i] == selected_mode))
+        {
+            ret = ret < 0 ? ret : -EAGAIN;
+            goto reboot;
         }
     }
     ret = gpio_pin_interrupt_configure_dt(&kbd_wake, GPIO_INT_LEVEL_ACTIVE);
-    if (ret != 0 || gpio_pin_get_dt(&kbd_wake) != 0 ||
-        mode_switch_read_contacts() != contacts_before)
+    if (ret != 0)
     {
-        /* Input changed during teardown: restart immediately, do not lose wake. */
-        sys_reboot(SYS_REBOOT_COLD);
+        goto reboot;
     }
-    sys_poweroff();
+    ret = gpio_pin_get_dt(&kbd_wake);
+    if (ret != 0 || atomic_get(&wake_seen))
+    {
+        ret = ret < 0 ? ret : -EAGAIN;
+        goto reboot;
+    }
+    sys_poweroff(); /* nRF52840 wake starts a fresh boot. */
+    return;
+
+reboot:
+    if (interrupts_locked)
+    {
+        /* Avoid an asserted level IRQ starving the reset/error path. */
+        (void)gpio_pin_interrupt_configure_dt(&kbd_wake, GPIO_INT_DISABLE);
+        for (size_t i = 0; i < ARRAY_SIZE(mode_inputs); ++i)
+        {
+            (void)gpio_pin_interrupt_configure_dt(mode_inputs[i], GPIO_INT_DISABLE);
+        }
+        irq_unlock(irq_key);
+    }
+    /* Once the radio is stopped there is no in-place resume. A fresh boot
+     * restores GPIOs, SPI, encoder, timers, and the selected radio together.
+     */
+    LOG_INF("[power] Sleep aborted (%d); rebooting to restore input\n", ret);
+    sys_reboot(SYS_REBOOT_COLD);
 }
 
 static int wireless_24g_mode_run(void)
@@ -987,58 +902,235 @@ static int wireless_24g_mode_run(void)
 
     LOG_INF("2.4G mode init");
 
-    ret = wireless_gzll_init();
+    ret = kbd_gzll_init();
     if (ret != 0)
     {
         return ret;
     }
 
-    /*
-     * The scan timer drives 2.4G reports the same way it drives wired USB
-     * reports. Gazell callbacks only report TX status and ACK payloads.
-     */
-    uint32_t last_activity = k_uptime_get_32();
+    uint32_t last_activity_ms = k_uptime_get_32();
+    uint32_t knob_epoch = knob_activity_epoch();
+    bool previous_connected = false;
+
     while (true)
     {
         k_sem_take(&scan_sem, K_FOREVER);
-        bool changed = keyboard_scan_once();
-        uint32_t now = k_uptime_get_32();
-        if (wireless_user_active(changed))
+        kbd_gzll_process();
+        bool connected = kbd_gzll_connected();
+        if (!connected && previous_connected && kbd_macro_active())
         {
-            last_activity = now;
+            /* Old composite snapshots must not replay a macro on reconnect. */
+            kbd_gzll_discard_pending();
+            memset(keyboard_report_prev, 0xff, sizeof(keyboard_report_prev));
+            memset(consumer_report_prev, 0xff, sizeof(consumer_report_prev));
         }
-        wireless_submit_keymap_reports();
-        if ((uint32_t)(now - last_activity) >= KBD_WIRELESS_SLEEP_TIMEOUT_MS)
+        kbd_macro_set_enabled(connected);
+        if (connected != previous_connected)
         {
-            wireless_enter_system_off();
-            /* A high wake input defers sleep; avoid retrying on every scan. */
-            last_activity = k_uptime_get_32();
+            LOG_INF("Gazell %s", connected ? "connected" : "disconnected");
+            previous_connected = connected;
+        }
+        bool changed = keyboard_scan_once();
+        uint32_t current_knob_epoch = knob_activity_epoch();
+        if (!scan_succeeded || changed || keyboard_any_key_down() || current_knob_epoch != knob_epoch ||
+            kbd_macro_active())
+        {
+            last_activity_ms = k_uptime_get_32();
+        }
+        knob_epoch = current_knob_epoch;
+
+        if (keyboard_report_slot_due(KBD_GZLL_REPORT_PERIOD_US))
+        {
+            wireless_submit_keymap_reports();
+        }
+        kbd_gzll_process();
+        uint8_t led_state = kbd_gzll_led_state();
+        if (led_state != keyboard_led_state)
+        {
+            keyboard_led_state = led_state;
+            keyboard_leds_set_state(led_state);
+        }
+        /* Radio traffic must never extend the user-input idle deadline. */
+        if ((uint32_t)(k_uptime_get_32() - last_activity_ms) >=
+            KBD_WIRELESS_SLEEP_TIMEOUT_MS)
+        {
+            wireless_sleep_prepare();
+            /* An asserted wake line defers sleep; try again after idle time. */
+            last_activity_ms = k_uptime_get_32();
         }
     }
 
     return 0;
 }
 
-static void ble_mode_dummy(void)
+static int ble_mode_run(void)
 {
-    LOG_INF("BLE mode dummy init");
+    uint8_t six_kro[KBD_HID_6KRO_REPORT_BYTES];
+    bool wait_for_release = true;
+    int ret = kbd_ble_init();
 
-    /*
-     * BLE transport is intentionally empty for now. Keep scan/debounce running
-     * here so the future BLE path can reuse the same key state pipeline.
+    if (ret != 0)
+    {
+        return ret;
+    }
+    uint32_t input_epoch = kbd_ble_input_epoch();
+    uint32_t last_activity_ms = k_uptime_get_32();
+    uint32_t knob_epoch = knob_activity_epoch();
+    LOG_INF("[ble] Idle System OFF timeout: %u ms (pairing/held keys postpone sleep)\n",
+           CONFIG_KBD_BLE_SLEEP_TIMEOUT_MS);
+    LOG_INF("BLE mode initialized");
+
+    /* Same scan/keymap pipeline as USB and Gazell; only BLE uses 6-KRO.
+     * The transport copies reports into its queue and sends in work context.
      */
     while (true)
     {
+        keyboard_scan_set_period(kbd_ble_scan_period_us());
         k_sem_take(&scan_sem, K_FOREVER);
-        (void)keyboard_scan_once();
+        uint32_t epoch = kbd_ble_input_epoch();
+        if (epoch != input_epoch)
+        {
+            input_epoch = epoch;
+            wait_for_release = true;
+            knob_reset();
+            kbd_macro_set_enabled(false);
+            keyboard_report_resync();
+        }
+        bool keyboard_ready = kbd_ble_keyboard_ready();
+        kbd_macro_set_enabled(keyboard_ready && !wait_for_release);
+        bool changed = keyboard_scan_once();
+
+        uint32_t current_knob_epoch = knob_activity_epoch();
+        uint32_t now = k_uptime_get_32();
+        if (!scan_succeeded || changed || keyboard_any_key_down() || current_knob_epoch != knob_epoch ||
+            !kbd_ble_can_sleep() || kbd_ble_input_epoch() != input_epoch ||
+            kbd_macro_active())
+        {
+            last_activity_ms = now;
+        }
+        knob_epoch = current_knob_epoch;
+        /* This check also runs while disconnected or waiting for HID CCC. */
+        if ((uint32_t)(now - last_activity_ms) >= CONFIG_KBD_BLE_SLEEP_TIMEOUT_MS)
+        {
+            wireless_sleep_prepare();
+            last_activity_ms = k_uptime_get_32();
+            continue;
+        }
+
+        uint8_t led_state = kbd_ble_led_state();
+        if (led_state != keyboard_led_state)
+        {
+            keyboard_led_state = led_state;
+            keyboard_leds_set_state(led_state);
+        }
+
+        epoch = kbd_ble_input_epoch();
+        if (epoch != input_epoch)
+        {
+            input_epoch = epoch;
+            wait_for_release = true;
+            knob_reset();
+            kbd_macro_set_enabled(false);
+            keyboard_report_resync();
+        }
+        if (!kbd_ble_keyboard_ready())
+        {
+            /* Do not replay disconnected typing or knob motion on reconnect. */
+            wait_for_release = true;
+            knob_reset();
+            kbd_macro_set_enabled(false);
+            keyboard_report_resync();
+            continue;
+        }
+
+        if (wait_for_release)
+        {
+            /* Sample only current held state during reconnect admission. */
+            keyboard_report_resync();
+            /* Release admission follows scan cadence, so a fresh short press
+             * need not wait for a slow BLE report slot to become eligible.
+             */
+            wait_for_release = keyboard_any_key_down();
+        }
+        if (!keyboard_report_slot_due(kbd_ble_report_period_us()))
+        {
+            continue;
+        }
+        keyboard_report_load_physical();
+        if (wait_for_release)
+        {
+            /* Include consumed Fn/macro keys: holding a trigger across a
+             * reconnect must not start playback until a fresh physical press.
+             */
+            bool held = keyboard_any_key_down();
+            for (size_t i = 1; i < sizeof(keyboard_report); i++)
+            {
+                held |= keyboard_report[i] != 0;
+            }
+            wait_for_release = held;
+            memset(&keyboard_report[1], 0, sizeof(keyboard_report) - 1);
+            consumer_report[1] = 0;
+            knob_reset();
+            kbd_macro_set_enabled(false);
+        }
+        else
+        {
+            kbd_macro_apply(keyboard_report, (uint64_t)k_uptime_get(),
+                            kbd_ble_tx_idle(input_epoch), KBD_HID_6KRO_KEY_COUNT);
+        }
+
+        hid_report_nkro_to_6kro(keyboard_report, six_kro);
+        ret = kbd_ble_submit_keyboard(six_kro, input_epoch);
+        bool keyboard_accepted = ret == 0;
+        if (ret == 0 && input_epoch == kbd_ble_input_epoch())
+        {
+            kbd_macro_report_accepted();
+        }
+
+        bool consumer_accepted = true;
+        if (kbd_ble_consumer_ready())
+        {
+            if (!wait_for_release)
+            {
+                consumer_report[1] = knob_report_apply(consumer_report[1]);
+            }
+            ret = kbd_ble_submit_consumer(consumer_report[1], input_epoch);
+            consumer_accepted = ret == 0;
+            if (ret == 0)
+            {
+                knob_report_sent(consumer_report[1]);
+            }
+        }
+        else
+        {
+            /* Boot Protocol has no consumer report. */
+            knob_reset();
+        }
+        if (keyboard_accepted && consumer_accepted && input_epoch == kbd_ble_input_epoch())
+        {
+            kbd_report_physical_accepted();
+        }
     }
+
+    return 0;
 }
 
 static void kb_iface_ready(const struct device *dev, const bool ready)
 {
     LOG_INF("HID device %s interface is %s",
             dev->name, ready ? "ready" : "not ready");
-    kb_ready = ready;
+    atomic_set(&kb_ready, ready);
+    if (!ready)
+    {
+        atomic_inc(&usb_input_epoch);
+    }
+}
+
+static void kb_input_report_done(const struct device *dev, const uint8_t *const report)
+{
+    ARG_UNUSED(dev);
+    ARG_UNUSED(report);
+    atomic_clear(&usb_tx_busy);
 }
 
 static int kb_get_report(const struct device *dev,
@@ -1066,8 +1158,8 @@ static int kb_get_report(const struct device *dev,
      * Return the cached LED byte for control endpoint GET_REPORT. This mirrors
      * the last accepted SET_REPORT state.
      */
-    buf[0] = keyboard_led_state;
-    LOG_INF("Get keyboard LED state: 0x%02x", keyboard_led_state);
+    buf[0] = (uint8_t)atomic_get(&usb_led_state);
+    LOG_INF("Get keyboard LED state: 0x%02x", buf[0]);
 
     return 1;
 }
@@ -1120,6 +1212,7 @@ static void __maybe_unused kb_output_report(const struct device *dev,
 
 struct hid_device_ops kb_ops = {
     .iface_ready = kb_iface_ready,
+    .input_report_done = kb_input_report_done,
     .get_report = kb_get_report,
     .set_report = kb_set_report,
     .set_idle = kb_set_idle,
@@ -1142,6 +1235,16 @@ static void msg_cb(struct usbd_context *const usbd_ctx,
                    const struct usbd_msg *const msg)
 {
     LOG_INF("USBD message: %s", usbd_msg_type_string(msg->type));
+
+    if (msg->type == USBD_MSG_SUSPEND || msg->type == USBD_MSG_RESET ||
+        msg->type == USBD_MSG_VBUS_REMOVED)
+    {
+        atomic_inc(&usb_input_epoch);
+        /* Discard old LEDs on suspend as well as reset/disconnect.
+         * Resume leaves them off until the host sends a new SET_REPORT.
+         */
+        atomic_clear(&usb_led_state);
+    }
 
     if (msg->type == USBD_MSG_CONFIGURATION)
     {
@@ -1241,13 +1344,38 @@ static int wired_mode_run(void)
      *   1. wait for the scan timer
      *   2. scan SPI matrix and debounce
      *   3. merge knob pulses with matrix consumer state
-     *   4. submit changed reports, retrying previously failed submissions
+     *   4. on report slots, submit ordered states and retry failed submissions
      */
+    atomic_val_t input_epoch = -1;
     while (true)
     {
         k_sem_take(&scan_sem, K_FOREVER);
+        atomic_val_t epoch = atomic_get(&usb_input_epoch);
+        if (epoch != input_epoch)
+        {
+            input_epoch = epoch;
+            kbd_macro_set_enabled(false);
+            keyboard_report_resync();
+            memset(keyboard_report_prev, 0xff, sizeof(keyboard_report_prev));
+            memset(consumer_report_prev, 0xff, sizeof(consumer_report_prev));
+        }
+        bool usb_active = atomic_get(&kb_ready) && !usbd_is_suspended(sample_usbd);
+        /* Keep indicators off while USB is inactive. The suspend callback
+         * clears the cached report; resume does not restore the old LEDs.
+         * Only this thread writes LED GPIOs.
+         */
+        uint8_t led_state = usb_active ? (uint8_t)atomic_get(&usb_led_state) : 0U;
+        if (led_state != keyboard_led_state)
+        {
+            keyboard_led_state = led_state;
+            keyboard_leds_set_state(led_state);
+        }
+        kbd_macro_set_enabled(usb_active);
         (void)keyboard_scan_once();
-        keyboard_submit_keymap_reports(hid_dev, sample_usbd);
+        if (keyboard_report_slot_due(KBD_USB_REPORT_PERIOD_US))
+        {
+            keyboard_submit_keymap_reports(hid_dev, sample_usbd);
+        }
     }
 
     return 0;
@@ -1257,6 +1385,14 @@ int main(void)
 {
     enum keyboard_mode mode;
     int ret;
+
+    uint32_t reset_cause;
+    if (hwinfo_get_reset_cause(&reset_cause) == 0)
+    {
+        LOG_INF("[power] Boot reset cause: 0x%08x%s\n", reset_cause,
+               reset_cause & RESET_LOW_POWER_WAKE ? " (woke from System OFF)" : "");
+        (void)hwinfo_clear_reset_cause();
+    }
 
     /*
      * Main thread owns scan/debounce/report work, so it runs above the RGB
@@ -1270,18 +1406,38 @@ int main(void)
         return ret;
     }
 
-    mode = keyboard_mode_detect();
-    active_mode = mode;
+    ret = mode_switch_start();
+    if (ret != 0)
+    {
+        LOG_ERR("Failed to enable mode switch interrupts, %d", ret);
+        return ret;
+    }
+
+    /* Sleep until a unique contact has been stable for 50 ms. */
+    k_sem_take(&mode_selected_sem, K_FOREVER);
+    mode = active_mode;
+    LOG_INF("Selected mode: %s", mode == KEYBOARD_MODE_WIRED ? "wired" :
+            (mode == KEYBOARD_MODE_BLE ? "BLE" : "2.4G"));
+
+    if (mode == KEYBOARD_MODE_WIRELESS_24G)
+    {
+        /* Gazell needs exclusive radio ownership. USB must keep MPSL alive:
+         * CONFIG_CLOCK_CONTROL_MPSL routes its HFXO requests through MPSL,
+         * even though wired mode never calls bt_enable().
+         */
+        ret = kbd_radio_prepare_non_ble();
+        if (ret != 0)
+        {
+            LOG_ERR("Cannot release BLE radio resources, %d", ret);
+            return ret;
+        }
+    }
 
     ret = peripheral_init();
     if (ret != 0)
     {
         return ret;
     }
-
-    /* Poll independently of the scan loop, including while USB waits for TX. */
-    k_work_init_delayable(&mode_switch_work, mode_switch_work_handler);
-    k_work_reschedule(&mode_switch_work, K_NO_WAIT);
 
     /*
      * Common peripherals are ready before entering the selected transport
@@ -1293,8 +1449,7 @@ int main(void)
     case KEYBOARD_MODE_WIRELESS_24G:
         return wireless_24g_mode_run();
     case KEYBOARD_MODE_BLE:
-        ble_mode_dummy();
-        break;
+        return ble_mode_run();
     case KEYBOARD_MODE_WIRED:
     default:
         return wired_mode_run();

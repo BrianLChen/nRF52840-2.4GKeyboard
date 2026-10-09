@@ -4,8 +4,8 @@
  * The keyboard switch states are latched by the shift register load pin, then
  * clocked into the MCU through the SPI MISO line.
  * The controller's cs-gpios entry 0 drives active-low 74HC165 CE#.
- * The selected Nordic SPIM controller transfers the scan using EasyDMA.
- * keyscan_read() is synchronous and must be called from thread context.
+ * Nordic SPIM transfers RAM buffers using EasyDMA. keyscan_read() waits for
+ * completion and must be called from thread context, not a timer ISR.
  */
 #ifndef KEYSCAN_SPI_H
 #define KEYSCAN_SPI_H
@@ -22,6 +22,8 @@
 
 int keyscan_init(void);
 int keyscan_read(void);
+/* Final shutdown only: suspend SPIM and release external control pins. */
+int keyscan_suspend(void);
 void keyscan_log_changes(void);
 /* Normalized scan bitmap: 1 = pressed, 0 = released. */
 const uint8_t *keyscan_state_get(void);

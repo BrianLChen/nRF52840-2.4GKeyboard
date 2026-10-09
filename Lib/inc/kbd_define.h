@@ -14,23 +14,38 @@
 /*
  * Matrix scan/debounce timing.
  *
- * The scan timer runs once per KBD_SCAN_PERIOD_US. Debounce code converts
- * KBD_DEBOUNCE_TIME_US into a counter threshold, so changing the scan period
- * keeps debounce time expressed in real microseconds.
+ * USB/Gazell have independent scan settings, separate from report rates.
+ * BLE has a separate fixed/dynamic scan setting.
+ * debounce_set_scan_period_us() scales the counter
+ * threshold for the active period, with at least two samples per transition.
  */
-#define KBD_SCAN_PERIOD_US 1000
+#define KBD_USB_SCAN_PERIOD_US 200  /* 5 kHz */
+#define KBD_GZLL_SCAN_PERIOD_US 200 /* 5 kHz */
+/* BLE matrix scan configuration: edit Keyboard_Body/prj.conf.
+ * CONFIG_KBD_BLE_FIXED_SCAN_PERIOD_US: fixed period in microseconds;
+ *   200 selects a target of 5 kHz, 1000 selects 1 kHz.
+ *   0 selects the dynamic policy: connection interval divided by
+ *   CONFIG_KBD_BLE_SCANS_PER_INTERVAL, clamped between
+ *   CONFIG_KBD_BLE_SCAN_MIN_US and CONFIG_KBD_BLE_SCAN_MAX_US.
+ * Option definitions: Lib/bluetooth/Kconfig.
+ * Runtime calculation: kbd_ble_scan_period_us() in Lib/bluetooth/ble_keyboard.c.
+ * BLE report timing is configured separately by CONFIG_KBD_BLE_REPORT_PERIOD_US.
+ */
+/* Default debounce units/legacy keyscan interval; active modes set runtime units. */
+#define KBD_SCAN_PERIOD_US KBD_USB_SCAN_PERIOD_US
+/* Debounced physical transitions waiting for a report slot. */
+#define KBD_PHYSICAL_REPORT_QUEUE_SIZE 32
 #define KBD_DEBOUNCE_TIME_US 2000
+#define KBD_DEBOUNCE_MIN_SAMPLES 2
+/* Rounded-up default threshold; the runtime setter also enforces the minimum. */
 #define KBD_DEBOUNCE_COUNTER_THRESHOLD \
-	(KBD_DEBOUNCE_TIME_US / KBD_SCAN_PERIOD_US)
+	((KBD_DEBOUNCE_TIME_US + KBD_SCAN_PERIOD_US - 1) / KBD_SCAN_PERIOD_US)
 
 /* Four A/B transitions per electrical cycle, matching one old A falling edge. */
 #define KBD_KNOB_STEPS_PER_PERIOD 4
 #define KBD_KNOB_SAMPLE_PERIOD_US 250
 
-/* Debounce all three active-low mode contacts before rebooting into a mode.
- * No valid contact during switch travel does not select a fallback mode.
- */
-#define KBD_MODE_SWITCH_POLL_PERIOD_MS 10
+/* Restart this interval on every mode contact edge; require one valid contact. */
 #define KBD_MODE_SWITCH_DEBOUNCE_MS 50
 
 /*
@@ -81,6 +96,9 @@
  * the keyboard side to maintain the disconnect counter.
  */
 #define KBD_GZLL_MAX_TX_ATTEMPTS 100
+/* Application queue retains each report across failed Gazell TX attempts. */
+#define KBD_GZLL_PENDING_REPORTS 32
+#define KBD_GZLL_TIMESLOT_PERIOD_US 600
 #define KBD_GZLL_TIMESLOTS_PER_CHANNEL 3
 #define KBD_GZLL_OUT_OF_SYNC_TIMESLOTS_PER_CHANNEL 20
 #define KBD_GZLL_SYNC_LIFETIME 45
@@ -104,10 +122,7 @@
  * the wireless sleep/idle timer.
  */
 #define KBD_WIRELESS_KEEP_ALIVE_PERIOD_MS 20
-/* Wireless only: idle user input for 180 s enters System OFF.
- * Held keys and queued knob actions inhibit sleep; radio ACKs do not count
- * as user activity. P1.07 high wakes by reset, not by resuming the thread.
- */
+/* Physical input and active macros postpone sleep; radio traffic does not. */
 #define KBD_WIRELESS_SLEEP_TIMEOUT_MS 180000U
 #define KBD_WIRELESS_DISCONNECT_COUNTER_PERIOD_MS 100
 #define KBD_WIRELESS_DISCONNECT_COUNTER_THRESHOLD 20
@@ -116,19 +131,30 @@
 #define KBD_HID_REPORT_ID_CONSUMER 2
 
 /*
- * USB HID report polling period.
+ * Application report-update periods. USB polling uses the same USB value.
  *
- * Select one report rate by uncommenting one line. The value is in
+ * Change each mode's value independently. Values are in
  * microseconds because Zephyr HID polling APIs and devicetree use us.
  */
-/* #define KBD_HID_REPORT_POLLING_PERIOD_US 4000 */ /* 250 Hz */
-/* #define KBD_HID_REPORT_POLLING_PERIOD_US 2000 */ /* 500 Hz */
-#define KBD_HID_REPORT_POLLING_PERIOD_US 1000       /* 1000 Hz */
+/* 4000 = 250 Hz; 2000 = 500 Hz; 1000 = 1000 Hz. */
+#define KBD_USB_REPORT_PERIOD_US 1000
+#define KBD_GZLL_REPORT_PERIOD_US 1000
+#define KBD_HID_REPORT_POLLING_PERIOD_US KBD_USB_REPORT_PERIOD_US
+
+/* Application report updates (not matrix scans or Gazell RF timeslots).
+ * USB and Gazell are independently configurable above. BLE uses
+ * CONFIG_KBD_BLE_FIXED_SCAN_PERIOD_US and CONFIG_KBD_BLE_REPORT_PERIOD_US
+ * in Keyboard_Body/prj.conf (zero retains their legacy dynamic defaults).
+ * A slot submits at most one physical state, with keyboard/consumer reports
+ * tracked separately. Unchanged reports are still suppressed.
+ */
 
 #define KBD_HID_KEYBOARD_BITMAP_BITS 120
 #define KBD_HID_KEYBOARD_BITMAP_BYTES (KBD_HID_KEYBOARD_BITMAP_BITS / 8)
 #define KBD_HID_KEYBOARD_REPORT_BYTES (1 + 1 + KBD_HID_KEYBOARD_BITMAP_BYTES)
 #define KBD_HID_CONSUMER_REPORT_BYTES 2
+#define KBD_HID_6KRO_KEY_COUNT 6
+#define KBD_HID_6KRO_REPORT_BYTES (2 + KBD_HID_6KRO_KEY_COUNT)
 
 #define KBD_HID_KEYBOARD_USAGE_MAX 0x77
 #define KBD_HID_KEYBOARD_BITMAP_BIT_OFFSET 16

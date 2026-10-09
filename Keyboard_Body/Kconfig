@@ -9,4 +9,6 @@ config SAMPLE_USBD_REMOTE_WAKEUP
 # tree, you cannot use them in your own application.
 source "samples/subsys/usb/common/Kconfig.sample_usbd"
 
+rsource "../Lib/bluetooth/Kconfig"
+
 source "Kconfig.zephyr"

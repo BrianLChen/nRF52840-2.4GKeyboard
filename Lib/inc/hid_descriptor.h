@@ -13,5 +13,10 @@
  */
 extern const uint8_t hid_report_desc[];
 extern const size_t hid_report_desc_size;
+/* BLE Report Map: 6-KRO keyboard (ID 1) and consumer bitmap (ID 2).
+ * GATT payloads exclude the ID byte; Boot keyboard uses the same 8 bytes.
+ */
+extern const uint8_t hid_6kro_report_desc[];
+extern const size_t hid_6kro_report_desc_size;
 
 #endif /* HID_DESCRIPTOR_H */

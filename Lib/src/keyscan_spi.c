@@ -5,6 +5,7 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/spi.h>
+#include <zephyr/pm/device.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 
@@ -150,6 +151,20 @@ int keyscan_read(void)
 	}
 #endif
 	return 0;
+}
+
+int keyscan_suspend(void)
+{
+	int ret = pm_device_action_run(scan_spi, PM_DEVICE_ACTION_SUSPEND);
+
+	if (ret != 0) {
+		return ret;
+	}
+	ret = gpio_pin_configure_dt(&scan_load, GPIO_DISCONNECTED);
+	if (ret != 0) {
+		return ret;
+	}
+	return gpio_pin_configure_dt(&scan_spi_cfg.cs.gpio, GPIO_DISCONNECTED);
 }
 
 void keyscan_log_changes(void)

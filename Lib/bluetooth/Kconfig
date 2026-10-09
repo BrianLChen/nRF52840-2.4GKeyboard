@@ -1,0 +1,97 @@
+menu "Keyboard Bluetooth transport"
+
+config KBD_BLE
+	bool "Keyboard BLE HID and pairing manager"
+	depends on BT_PERIPHERAL && BT_HIDS && BT_SETTINGS
+	default y
+
+config KBD_MAX_PAIRED
+	int "Number of persistent keyboard pairing slots"
+	depends on KBD_BLE
+	range 1 8
+	default 2
+	help
+	  Reserve one extra bond in BT_MAX_PAIRED, and the default plus a
+	  candidate identity in BT_ID_MAX. Replacement keeps the old bond
+	  until the candidate and slot mapping are committed to settings.
+
+config KBD_BLE_FIXED_SCAN_PERIOD_US
+	int "Fixed BLE matrix scan period (microseconds, 0 = dynamic)"
+	depends on KBD_BLE
+	range 0 20000
+	default 0
+	help
+	  Set a fixed high scan rate independently of BLE report updates.
+	  For example 250 means 4 kHz. Zero keeps the interval-derived scan
+	  policy below. A high scan rate increases CPU and peripheral activity.
+
+config KBD_BLE_REPORT_PERIOD_US
+	int "BLE application report period (microseconds, 0 = legacy dynamic rate)"
+	depends on KBD_BLE
+	range 0 4000000
+	default 0
+	help
+	  Controls how often physical/macro/knob state is submitted to the BLE
+	  report queue, independently of matrix scanning. Zero preserves the
+	  original interval-derived update rate using KBD_BLE_REPORTS_PER_INTERVAL
+	  and KBD_BLE_REPORT_MIN_US/MAX_US, independently of scan configuration.
+	  This does not change the negotiated radio connection parameters.
+
+config KBD_BLE_REPORTS_PER_INTERVAL
+	int "Application report updates per BLE connection interval"
+	depends on KBD_BLE
+	range 1 16
+	default 4
+
+config KBD_BLE_REPORT_MIN_US
+	int "Shortest dynamic BLE report period (microseconds)"
+	depends on KBD_BLE
+	range 1000 4000000
+	default 2000
+
+config KBD_BLE_REPORT_MAX_US
+	int "Longest dynamic BLE report period (microseconds)"
+	depends on KBD_BLE
+	range 1000 4000000
+	default 8000
+	help
+	  Dynamic report limits apply only when KBD_BLE_REPORT_PERIOD_US is zero.
+	  Defaults preserve the old update rate, independently of matrix scanning.
+
+config KBD_BLE_SCANS_PER_INTERVAL
+	int "Matrix scans per BLE connection interval"
+	depends on KBD_BLE
+	range 1 16
+	default 4
+	help
+	  Derive the matrix scan period from the negotiated connection interval.
+	  Before connection, use the preferred minimum interval. The result is
+	  clamped to KBD_BLE_SCAN_MIN_US through KBD_BLE_SCAN_MAX_US.
+	  Used only when KBD_BLE_FIXED_SCAN_PERIOD_US is zero.
+
+config KBD_BLE_SCAN_MIN_US
+	int "Shortest BLE matrix scan period (microseconds)"
+	depends on KBD_BLE
+	range 1000 20000
+	default 2000
+
+config KBD_BLE_SCAN_MAX_US
+	int "Longest BLE matrix scan period (microseconds)"
+	depends on KBD_BLE
+	range 1000 20000
+	default 8000
+	help
+	  Limit additional input latency and missed short presses on slow links.
+	  This does not change the GPIO encoder driver's sampling period.
+
+config KBD_BLE_SLEEP_TIMEOUT_MS
+	int "BLE input idle timeout before System OFF (milliseconds)"
+	depends on KBD_BLE && POWEROFF && PM_DEVICE
+	range 1000 3600000
+	default 180000
+	help
+	  Disconnect and enter System OFF after this time without input. Held
+	  keys, pending reports, pairing and slot changes postpone shutdown.
+	  GPIO wake starts a fresh boot and reconnects the saved active slot.
+
+endmenu

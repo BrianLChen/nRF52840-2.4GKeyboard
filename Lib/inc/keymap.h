@@ -8,7 +8,32 @@
 
 #define KBD_KEY_NONE 0xffff
 #define KBD_KEY_FN 0xfffe
+#define KBD_KEY_PAIRING 0xfffd
+#define KBD_KEY_DEVICE_SWITCH 0xfffc
+#define KBD_KEY_MACRO_0 0xff00
+#define KBD_KEY_MACRO_1 0xff01
+#define KBD_KEY_MACRO_2 0xff02
+#define KBD_KEY_MACRO_3 0xff03
+#define KBD_KEY_MACRO_CANCEL 0xff04
 #define KBD_KEYMAP_LAYER_COUNT 2
+
+enum kbd_knob_direction {
+	KBD_KNOB_CW,
+	KBD_KNOB_CCW,
+	KBD_KNOB_DIRECTION_COUNT,
+};
+
+/* Internal actions, never encoded as host HID usages. May be combined. */
+enum kbd_keymap_action {
+	KBD_ACTION_NONE = 0,
+	KBD_ACTION_PAIRING = 1U << 0,
+	KBD_ACTION_DEVICE_SWITCH = 1U << 1,
+	KBD_ACTION_MACRO_0 = 1U << 2,
+	KBD_ACTION_MACRO_1 = 1U << 3,
+	KBD_ACTION_MACRO_2 = 1U << 4,
+	KBD_ACTION_MACRO_3 = 1U << 5,
+	KBD_ACTION_MACRO_CANCEL = 1U << 6,
+};
 
 enum kbd_key_code {
 	MODIFIER_LEFT_CTRL = 0 + 8,
@@ -117,6 +142,12 @@ enum kbd_key_code {
 void keymap_init(void);
 bool keymap_is_fn_key(uint16_t key_index);
 uint16_t keymap_get_code(uint8_t layer, uint16_t key_index);
+/* Consumer keycode or KBD_KEY_NONE; independent of the physical key table. */
+uint16_t keymap_get_knob_code(uint8_t layer, enum kbd_knob_direction direction);
 uint8_t keymap_get_active_layer(void);
+/* Call once after debounce, before building reports, from the scan thread. */
+uint8_t keymap_update_actions(void);
+/* A function press stays consumed until physical release, even if Fn changes. */
+bool keymap_is_action_key(uint16_t key_index);
 
 #endif /* KEYMAP_H */
